@@ -24,8 +24,21 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
     // Build set of leftover slot keys e.g. "mon:breakfast"
     const leftoverKeys = new Set(leftoverOverrides);
 
+    // Normalize plan shape: array [{day, meals:[{slot, ...}]}] → {day: {slot: meal}}
+    const rawDays = planJson.days || {};
+    let days = rawDays;
+    if (Array.isArray(rawDays)) {
+      days = {};
+      for (const d of rawDays) {
+        const key = (d.day || '').toLowerCase();
+        days[key] = {};
+        for (const m of (d.meals || [])) {
+          days[key][m.slot] = m;
+        }
+      }
+    }
+
     // Also collect is_leftover flags from plan_json itself
-    const days = planJson.days || {};
     for (const [day, slots] of Object.entries(days)) {
       for (const [slot, meal] of Object.entries(slots)) {
         if (meal?.is_leftover) leftoverKeys.add(`${day}:${slot}`);
@@ -37,9 +50,19 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
     const available = {}; // name → quantity_g already cooked/available from leftovers
 
     const parseIngredients = (meal) => {
-      const raw = meal?.ingredient_list || meal?.ingredients || [];
-      return Array.isArray(raw) ? raw
-        : (typeof raw === 'string' ? JSON.parse(raw) : []);
+      // Try inline ingredient_list first
+      const raw = meal?.ingredient_list || meal?.ingredients;
+      if (raw && raw.length > 0) {
+        return Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : []);
+      }
+      // Fall back to DB lookup by recipe_id
+      if (meal?.recipe_id) {
+        const recipe = db.prepare('SELECT ingredient_list FROM recipes WHERE id = ?').get(meal.recipe_id);
+        if (recipe?.ingredient_list) {
+          try { return JSON.parse(recipe.ingredient_list); } catch { return []; }
+        }
+      }
+      return [];
     };
 
     for (const [day, slots] of Object.entries(days)) {
