@@ -12,5 +12,6 @@ app.use('/api/recipes', require('./routes/recipes'));
 app.use('/api/mealplan', require('./routes/mealplan'));
 app.use('/api/workout', require('./routes/workout'));
 app.use('/api/grocery', require('./routes/grocery'));
+app.use('/api/macro-summary', require('./routes/macroSummary'));
 
 app.listen(3001, () => console.log('FridgeToFit backend running on :3001'));
