@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/wr5xjscycc-spec/realhackthon#readme",
   "dependencies": {
-    "better-sqlite3": "^12.8.0"
+    "better-sqlite3": "^12.8.0",
+    "express": "^5.2.1"
   }
 }

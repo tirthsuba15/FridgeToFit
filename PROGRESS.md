@@ -22,3 +22,4 @@
 
 ## P2 — Tmoney (Backend)
 - [x] Phase 1 — schema + DB init + SCHEMA.md
+- [x] Phase 2 — route stubs + ROUTES.md
