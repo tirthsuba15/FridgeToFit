@@ -1,5 +1,7 @@
 const express = require('express');
 const app = express();
+const { enrichNutrition } = require('./scripts/enrichNutrition');
+enrichNutrition().catch(console.error);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/index');
 const { v4: uuidv4 } = require('uuid');
+const { calculateTDEE, getMacroTargets } = require('../utils/tdee');
+const requireUser = require('../middleware/auth');
 
 // POST /api/users
 router.post('/users', (req, res) => {
@@ -34,6 +36,27 @@ router.post('/users', (req, res) => {
 
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     return res.json(user);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/users/:id/tdee
+router.get('/users/:id/tdee', requireUser, (req, res) => {
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.id !== req.user.id) return res.status(401).json({ error: 'Unauthorized' });
+
+    const tdee = calculateTDEE({
+      weight_kg: user.weight_kg,
+      height_cm: user.height_cm,
+      age: user.age,
+      sex: user.sex,
+      activity_level: user.activity_level
+    });
+    const targets = getMacroTargets(tdee, user.goal);
+    return res.json({ tdee, targets });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
