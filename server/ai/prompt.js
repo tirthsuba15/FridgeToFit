@@ -1,8 +1,8 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const MODELS = {
-  vision: "google/gemini-2.0-flash-exp:free",
-  text: "mistralai/mistral-7b-instruct:free",
+  vision: "google/gemma-3-12b-it:free",
+  text: "google/gemma-3-12b-it:free",
 };
 
 const HEADERS = {
@@ -20,17 +20,46 @@ function authHeaders() {
 
 // ── SHARED HELPERS ──────────────────────────────────────────────────────────
 
-async function openRouterCall(model, messages, retryOnce = true) {
+function foldSystemMessages(messages) {
+  const folded = [];
+  let systemText = "";
+
+  for (const msg of messages) {
+    if (msg.role === "system") {
+      systemText += (systemText ? "\n\n" : "") + msg.content;
+    } else if (msg.role === "user" && systemText) {
+      const userContent = typeof msg.content === "string"
+        ? `[Instructions]\n${systemText}\n\n[User]\n${msg.content}`
+        : [
+            { type: "text", text: `[Instructions]\n${systemText}\n\n[User]` },
+            ...(Array.isArray(msg.content) ? msg.content : [{ type: "text", text: msg.content }]),
+          ];
+      folded.push({ role: "user", content: userContent });
+      systemText = "";
+    } else {
+      folded.push(msg);
+    }
+  }
+
+  return folded;
+}
+
+async function aiCall(model, messages, attempt = 0) {
+  const maxRetries = 3;
+  const preparedMessages = foldSystemMessages(messages);
+
   const res = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({ model, messages: preparedMessages }),
   });
 
   if (res.status === 429) {
-    if (retryOnce) {
-      await new Promise((r) => setTimeout(r, 2000));
-      return openRouterCall(model, messages, false);
+    if (attempt < maxRetries) {
+      const wait = Math.pow(2, attempt + 1) * 3000;
+      console.error(`[aiCall] 429 rate limited, waiting ${wait}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise((r) => setTimeout(r, wait));
+      return aiCall(model, messages, attempt + 1);
     }
     throw new Error("Rate limited");
   }
@@ -40,6 +69,8 @@ async function openRouterCall(model, messages, retryOnce = true) {
   }
 
   if (!res.ok) {
+    const errBody = await res.text();
+    console.error(`[aiCall] HTTP ${res.status}:`, errBody);
     throw new Error(`OpenRouter error: ${res.status}`);
   }
 
@@ -84,20 +115,19 @@ async function visionExtract(base64Image) {
   ];
 
   try {
-    const raw = await openRouterCall(MODELS.vision, messages);
+    const raw = await aiCall(MODELS.vision, messages);
     const parsed = parseJSON(raw, "visionExtract");
 
     if (parsed !== null) {
       return { ingredients: parsed };
     }
 
-    // Retry with nudge
     const retryMessages = [
       ...messages,
       { role: "assistant", content: raw },
       { role: "user", content: RETRY_MSG },
     ];
-    const raw2 = await openRouterCall(MODELS.vision, retryMessages);
+    const raw2 = await aiCall(MODELS.vision, retryMessages);
     const parsed2 = parseJSON(raw2, "visionExtract-retry");
 
     if (parsed2 === null) {
@@ -116,21 +146,34 @@ async function visionExtract(base64Image) {
 async function generateMealPlan(params) {
   const { recipes, tdee, macros, cuisines, dietary, budget } = params;
 
+  const hasDietary = Array.isArray(dietary) && dietary.length > 0 &&
+    !(dietary.length === 1 && dietary[0] === "none");
+  const filteredRecipes = hasDietary
+    ? recipes.filter(r =>
+        dietary.every(flag => Array.isArray(r.dietary) && r.dietary.includes(flag))
+      )
+    : recipes;
+  const validIds = filteredRecipes.map(r => r.recipe_id);
+
+  const maxRepeats = filteredRecipes.length >= 11 ? 2
+    : filteredRecipes.length >= 7 ? 3
+    : Math.ceil(21 / filteredRecipes.length);
+
   const system =
     "You are a meal planning assistant. Generate a 7-day meal plan using ONLY recipes from the provided list.\n" +
     "STRICT RULES:\n" +
-    "1. ONLY select recipe_ids from the provided JSON recipe list. Do NOT invent recipe names or IDs.\n" +
-    "2. No recipe repeats more than twice across the 7-day plan.\n" +
+    `1. The ONLY valid recipe_ids you may use are: [${validIds.join(",")}]. Do NOT invent or use any other IDs.\n` +
+    `2. No recipe repeats more than ${maxRepeats} times across the 7-day plan. Spread recipes as evenly as possible.\n` +
     "3. Vary cuisines — do not use the same cuisine_tag more than 2 days in a row.\n" +
     "4. Each day has 3 slots: breakfast, lunch, dinner.\n" +
     `5. Balance daily calories to approximately ${tdee} kcal/day.\n` +
-    `6. Respect dietary restrictions: ${dietary}.\n` +
+    `6. All recipes in the provided list already comply with dietary restrictions: ${dietary}. Only use recipes from this list.\n` +
     `7. Stay within weekly budget: $${budget}.\n` +
     "8. Return ONLY valid JSON. No preamble, no explanation, no markdown fences.\n" +
     'Output format: {"days":[{"day":"Monday","meals":[{"slot":"breakfast","recipe_id":1,"recipe_name":"Oatmeal Bowl","prep_time_min":10}]}]}';
 
   const userMsg =
-    `Recipe list: ${JSON.stringify(recipes)}\n` +
+    `Recipe list (all dietary-compliant): ${JSON.stringify(filteredRecipes)}\n` +
     `User profile: TDEE=${tdee} kcal, macros=${JSON.stringify(macros)},\n` +
     `preferred cuisines=${cuisines}, dietary restrictions=${dietary},\n` +
     `weekly budget=$${budget}.\n` +
@@ -142,7 +185,7 @@ async function generateMealPlan(params) {
   ];
 
   try {
-    const raw = await openRouterCall(MODELS.text, messages);
+    const raw = await aiCall(MODELS.text, messages);
     const parsed = parseJSON(raw, "generateMealPlan");
 
     if (parsed !== null) {
@@ -154,7 +197,7 @@ async function generateMealPlan(params) {
       { role: "assistant", content: raw },
       { role: "user", content: RETRY_MSG },
     ];
-    const raw2 = await openRouterCall(MODELS.text, retryMessages);
+    const raw2 = await aiCall(MODELS.text, retryMessages);
     const parsed2 = parseJSON(raw2, "generateMealPlan-retry");
 
     if (parsed2 === null) {
@@ -197,7 +240,7 @@ async function swapMeal(params) {
   ];
 
   try {
-    const raw = await openRouterCall(MODELS.text, messages);
+    const raw = await aiCall(MODELS.text, messages);
     const parsed = parseJSON(raw, "swapMeal");
 
     if (parsed !== null) {
@@ -209,7 +252,7 @@ async function swapMeal(params) {
       { role: "assistant", content: raw },
       { role: "user", content: RETRY_MSG },
     ];
-    const raw2 = await openRouterCall(MODELS.text, retryMessages);
+    const raw2 = await aiCall(MODELS.text, retryMessages);
     const parsed2 = parseJSON(raw2, "swapMeal-retry");
 
     if (parsed2 === null) {
@@ -249,7 +292,7 @@ async function generateSummary(params) {
   ];
 
   try {
-    const raw = await openRouterCall(MODELS.text, messages);
+    const raw = await aiCall(MODELS.text, messages);
     const parsed = parseJSON(raw, "generateSummary");
 
     if (parsed !== null) {
@@ -261,7 +304,7 @@ async function generateSummary(params) {
       { role: "assistant", content: raw },
       { role: "user", content: RETRY_MSG },
     ];
-    const raw2 = await openRouterCall(MODELS.text, retryMessages);
+    const raw2 = await aiCall(MODELS.text, retryMessages);
     const parsed2 = parseJSON(raw2, "generateSummary-retry");
 
     if (parsed2 === null) {
@@ -290,16 +333,17 @@ async function generateWorkoutPlan(params) {
     "- If equipment includes 'Resistance Bands': include band pull-aparts, banded squats, banded rows, etc.\n" +
     "- If equipment includes 'Full Gym': barbell compound lifts are allowed (squat, deadlift, bench press, barbell row).\n" +
     "- Never recommend equipment not in the user's list.\n\n" +
-    "GOAL RULES:\n" +
-    "- bulk: heavy compounds, 3-5 sets of 4-8 reps, 1-2 rest days, progressive overload notes.\n" +
-    "- cut: circuit-style, 3 sets of 12-15 reps, HIIT finisher notes on training days, 1 rest day.\n" +
-    "- maintain: moderate volume, 3-4 sets of 8-12 reps, 2 rest days.\n" +
-    "- athletic: functional movements (box jumps, jump squats if no sled), 2 rest days.\n\n" +
-    "ACTIVITY LEVEL RULES:\n" +
-    "- Sedentary: 3 training days, 4 rest days.\n" +
-    "- Lightly Active: 4 training days, 3 rest days.\n" +
-    "- Moderately Active: 4-5 training days, 2-3 rest days.\n" +
-    "- Very Active: 5-6 training days, 1-2 rest days.\n\n" +
+    "GOAL RULES (CRITICAL — apply rep ranges to EVERY exercise with ZERO exceptions):\n" +
+    "- bulk: EVERY exercise must use 4-8 reps. No exercise may exceed 8 reps. This includes isolation exercises like calf raises (4x8), lateral raises (4x8), face pulls (4x8), curls (3x6), russian twists (3x8), ab exercises (3x8). Use 3-5 sets. 1-2 rest days. Add progressive overload notes.\n" +
+    "- cut: EVERY exercise must use 12-15 reps. No exercise may go below 12 reps. Use 3 sets. Include HIIT finisher notes on training days. 1 rest day.\n" +
+    "- maintain: EVERY exercise must use 8-12 reps. Use 3-4 sets. 2 rest days.\n" +
+    "- athletic: functional movements (box jumps, jump squats if no sled). 2 rest days.\n\n" +
+    "ACTIVITY LEVEL RULES (STRICT — you MUST match the exact rest day count):\n" +
+    "- Sedentary: exactly 3 training days and exactly 4 rest days.\n" +
+    "- Lightly Active: exactly 4 training days and exactly 3 rest days.\n" +
+    "- Moderately Active: 4-5 training days and 2-3 rest days.\n" +
+    "- Very Active: 5-6 training days and 1-2 rest days.\n" +
+    "Count your training and rest days before responding to ensure they match.\n\n" +
     "STRUCTURE RULES:\n" +
     "- Output all 7 days: Monday through Sunday.\n" +
     "- Rest days: rest=true, focus='Rest', exercises=[].\n" +
@@ -322,7 +366,7 @@ async function generateWorkoutPlan(params) {
   ];
 
   try {
-    const raw = await openRouterCall(MODELS.text, messages);
+    const raw = await aiCall(MODELS.text, messages);
     let parsed = parseJSON(raw, "generateWorkoutPlan");
 
     if (parsed === null) {
@@ -331,7 +375,7 @@ async function generateWorkoutPlan(params) {
         { role: "assistant", content: raw },
         { role: "user", content: RETRY_MSG },
       ];
-      const raw2 = await openRouterCall(MODELS.text, retryMessages);
+      const raw2 = await aiCall(MODELS.text, retryMessages);
       parsed = parseJSON(raw2, "generateWorkoutPlan-retry");
 
       if (parsed === null) {
@@ -339,7 +383,6 @@ async function generateWorkoutPlan(params) {
       }
     }
 
-    // Validate 7 days
     if (!parsed.days || parsed.days.length !== 7) {
       const fixMessages = [
         ...messages,
@@ -348,10 +391,10 @@ async function generateWorkoutPlan(params) {
           role: "user",
           content:
             "Your response did not contain exactly 7 days. Return ONLY valid JSON with exactly " +
-            "7 days (Monday–Sunday). No preamble, no backticks.",
+            "7 days (Monday-Sunday). No preamble, no backticks.",
         },
       ];
-      const raw3 = await openRouterCall(MODELS.text, fixMessages);
+      const raw3 = await aiCall(MODELS.text, fixMessages);
       const parsed3 = parseJSON(raw3, "generateWorkoutPlan-7day-fix");
 
       if (parsed3 === null || !parsed3.days || parsed3.days.length !== 7) {
