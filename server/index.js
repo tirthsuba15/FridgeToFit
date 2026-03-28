@@ -34,12 +34,17 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/debug-paths', (req, res) => {
   const fs = require('fs');
+  let appContents = [], clientContents = [];
+  try { appContents = fs.readdirSync('/app'); } catch (_) {}
+  try { clientContents = fs.readdirSync('/app/client'); } catch (_) {}
   res.json({
     __dirname,
+    cwd: process.cwd(),
     DIST_PATH,
-    INDEX_PATH,
     distExists: fs.existsSync(DIST_PATH),
     indexExists: fs.existsSync(INDEX_PATH),
+    appContents,
+    clientContents,
   });
 });
 
