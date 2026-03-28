@@ -7,7 +7,7 @@
 | P1 | Phase 1 | 🔄 In progress | — | Phase 2 |
 | P2 | Phase 1 | 🔄 In progress | — | Phase 2 |
 | P3 | Pre-setup | 🔄 Design system | — | Phase 1 |
-| P4 | Phase 1 | 🔄 In progress | — | Phase 2 |
+| P4 | Phase 1 | ✅ Done | ai/prompt.js | Phase 2 |
 
 **Status key:** 🔄 In progress · ✅ Done · ⏸ Paused · 🚫 Blocked
 
@@ -16,6 +16,8 @@
 ## Phase Log
 *Each person appends one line when they complete a phase.*
 *Format: [time] P[N] Phase [N] ✅ — [one sentence what was built]*
+
+P4 Phase 1 ✅ — prompt design + ai/prompt.js scaffold (5 OpenRouter functions)
 
 <!-- example: -->
 <!-- 10:14am P2 Phase 1 ✅ — SQLite schema + migrations + SCHEMA.md pushed -->
