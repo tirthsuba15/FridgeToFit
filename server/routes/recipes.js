@@ -20,12 +20,15 @@ router.get('/match', requireUser, (req, res) => {
 
     const recipes = db.prepare('SELECT * FROM recipes').all();
 
+    // If no ingredients saved yet, return all dietary-filtered recipes
+    const threshold = userIngredientNames.length > 0 ? 0.3 : 0;
+
     const matched = matchRecipes({
       recipes,
       userIngredientNames,
       dietary_flags,
       cuisine_prefs,
-      threshold: 0.5
+      threshold
     });
 
     return res.json({

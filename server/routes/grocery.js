@@ -5,6 +5,88 @@ const requireUser = require('../middleware/auth');
 const { estimateCost, getAisle } = require('../utils/cost');
 const { calculateTDEE, getMacroTargets } = require('../utils/tdee');
 
+// POST /api/grocery/generate — frontend-friendly alias
+router.post('/generate', requireUser, async (req, res) => {
+  const { meal_plan_id } = req.body;
+  if (!meal_plan_id) return res.status(400).json({ error: 'meal_plan_id required' });
+  req.params = { mealplan_id: meal_plan_id };
+  // Forward to GET handler logic — just re-query directly
+  try {
+    const plan = db.prepare('SELECT * FROM meal_plans WHERE id = ? AND user_id = ?')
+      .get(meal_plan_id, req.user.id);
+    if (!plan) return res.status(404).json({ error: 'Meal plan not found' });
+
+    const planJson = JSON.parse(plan.plan_json);
+    const groceryRow = db.prepare('SELECT * FROM grocery_lists WHERE meal_plan_id = ?').get(meal_plan_id);
+    const leftoverOverrides = groceryRow ? JSON.parse(groceryRow.leftover_overrides || '[]') : [];
+    const leftoverKeys = new Set(leftoverOverrides);
+
+    const days = planJson.days || {};
+    for (const [day, slots] of Object.entries(days)) {
+      for (const [slot, meal] of Object.entries(slots)) {
+        if (meal?.is_leftover) leftoverKeys.add(`${day}:${slot}`);
+      }
+    }
+
+    const ownedIngredients = db.prepare('SELECT name FROM ingredients').all().map(i => i.name.toLowerCase().trim());
+    const ingredientTotals = {};
+
+    for (const [day, slots] of Object.entries(days)) {
+      for (const [slot, meal] of Object.entries(slots)) {
+        const key = `${day}:${slot}`;
+        if (leftoverKeys.has(key)) continue;
+
+        let ingredients =
+          meal?.ingredients ||
+          meal?.ingredient_list ||
+          meal?.ingredientList ||
+          meal?.recipe?.ingredients ||
+          [];
+
+        if (typeof ingredients === 'string') {
+          try { ingredients = JSON.parse(ingredients); } catch { ingredients = []; }
+        }
+        if (Array.isArray(ingredients) && ingredients.length > 0 && typeof ingredients[0] === 'object') {
+          ingredients = ingredients.map(i => i.name || i.ingredient || String(i));
+        }
+
+        for (const ing of ingredients) {
+          const name = (typeof ing === 'string' ? ing : String(ing)).toLowerCase().trim();
+          const qty = typeof ing === 'object' ? (ing.quantity_g || 100) : 100;
+          if (!name || name.length < 2) continue;
+          if (ownedIngredients.some(o => name.includes(o) || o.includes(name))) continue;
+          if (!ingredientTotals[name]) ingredientTotals[name] = { quantity_g: 0, aisle: getAisle(name) };
+          ingredientTotals[name].quantity_g += qty;
+        }
+      }
+    }
+
+    const grouped = {};
+    let total_cost_usd = 0;
+    for (const [name, data] of Object.entries(ingredientTotals)) {
+      const aisle = data.aisle;
+      const cost = estimateCost(name, data.quantity_g);
+      total_cost_usd += cost;
+      if (!grouped[aisle]) grouped[aisle] = [];
+      grouped[aisle].push({ name, quantity_g: Math.round(data.quantity_g), estimated_cost_usd: cost });
+    }
+    total_cost_usd = Math.round(total_cost_usd * 100) / 100;
+
+    const items_json = JSON.stringify(grouped);
+    if (groceryRow) {
+      db.prepare('UPDATE grocery_lists SET items_json = ?, total_cost_usd = ? WHERE meal_plan_id = ?')
+        .run(items_json, total_cost_usd, meal_plan_id);
+    } else {
+      db.prepare('INSERT INTO grocery_lists (meal_plan_id, items_json, leftover_overrides, total_cost_usd) VALUES (?,?,?,?)')
+        .run(meal_plan_id, items_json, '[]', total_cost_usd);
+    }
+
+    return res.json({ meal_plan_id, leftover_meals_excluded: leftoverKeys.size, grouped, total_cost_usd });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/grocery/:mealplan_id
 router.get('/:mealplan_id', requireUser, (req, res) => {
   try {

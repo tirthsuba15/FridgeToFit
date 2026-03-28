@@ -56,12 +56,14 @@ router.post('/generate', async (req, res) => {
       // Fallback: use recipeMatcher with all ingredients
       const allRecipes = db.prepare('SELECT * FROM recipes').all();
       const userIngredients = db.prepare('SELECT name FROM ingredients').all();
+      const userIngredientNames = userIngredients.map(i => i.name);
+      const threshold = userIngredientNames.length > 0 ? 0.3 : 0;
       recipes = matchRecipes({
         recipes: allRecipes,
-        userIngredientNames: userIngredients.map(i => i.name),
+        userIngredientNames,
         dietary_flags,
         cuisine_prefs,
-        threshold: 0.3,
+        threshold,
       }).slice(0, 30);
     }
 
