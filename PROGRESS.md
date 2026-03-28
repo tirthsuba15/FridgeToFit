@@ -19,3 +19,11 @@
 
 <!-- example: -->
 <!-- 10:14am P2 Phase 1 ✅ — SQLite schema + migrations + SCHEMA.md pushed -->
+
+## P2 — Tmoney (Backend)
+- [x] Phase 1 — schema + DB init + SCHEMA.md
+- [x] Phase 2 — route stubs + ROUTES.md
+- [x] Phase 3 — CRUD endpoints live
+- [x] Phase 4 — TDEE + filters + nutrition enrichment
+- [x] Phase 5 — recipe match + meal plan + workout endpoints
+- [x] Phase 6 — grocery diff (leftovers-aware) + macro summary
