@@ -20,12 +20,13 @@ router.get('/match', requireUser, (req, res) => {
 
     const recipes = db.prepare('SELECT * FROM recipes').all();
 
+    const threshold = userIngredientNames.length > 0 ? 0.3 : 0;
     const matched = matchRecipes({
       recipes,
-      userIngredientNames,
+      userIngredientNames: userIngredientNames.length > 0 ? userIngredientNames : [''],
       dietary_flags,
       cuisine_prefs,
-      threshold: 0.5
+      threshold,
     });
 
     return res.json({

@@ -103,3 +103,16 @@
 - **Fix hint:** Resolve BUG-001 first, then re-run dietary filter tests
 
 ---
+
+---
+
+## BUG-009 — /api/recipes/match returns 0 when user has no saved ingredients (threshold=0.5 hardcoded)
+- **Status:** FIXED — threshold now 0 when no ingredients (returns all dietary-filtered recipes)
+- **Owner:** P1/teja
+- **Severity:** MEDIUM
+- **Fix:** server/routes/recipes.js: dynamic threshold (0.3 with ingredients, 0 without)
+
+## KNOWN — Demo account token
+- session_token: `demo-token-2024`
+- user_id: `f3937e6c-2b8d-486d-8998-d1a732f29aae`
+- goal: maintain | budget: $75 | cuisines: italian, mexican | equipment: Dumbbells
