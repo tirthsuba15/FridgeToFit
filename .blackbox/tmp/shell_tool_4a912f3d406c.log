@@ -1,0 +1,16 @@
+
+> client@0.0.0 dev
+> vite
+
+
+  VITE v8.0.3  ready in 401 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+9:28:10 AM [vite] vite.config.js changed, restarting server...
+Port 3000 is in use, trying another one...
+Port 3001 is in use, trying another one...
+9:28:10 AM [vite] server restarted.
+
+  ➜  Local:   http://localhost:3002/
+  ➜  Network: use --host to expose

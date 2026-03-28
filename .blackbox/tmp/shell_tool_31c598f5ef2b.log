@@ -1,0 +1,11 @@
+
+> client@0.0.0 dev
+> vite
+
+
+  VITE v8.0.3  ready in 347 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+10:18:31 AM [vite] (client) ✨ new dependencies optimized: axios
+10:18:31 AM [vite] (client) ✨ optimized dependencies changed. reloading

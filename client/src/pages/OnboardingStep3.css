@@ -1,0 +1,170 @@
+.onboarding-card-step3 {
+  max-width: 600px;
+}
+
+/* Cuisine Grid */
+.cuisine-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.cuisine-tile {
+  min-width: 100px;
+  height: 80px;
+  background: white;
+  border: 1.5px solid #ddd;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 200ms ease;
+  padding: 8px;
+}
+
+.cuisine-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.15);
+}
+
+.cuisine-tile.selected {
+  border: 2.5px solid var(--green-deep);
+  background: rgba(82, 183, 136, 0.12);
+}
+
+.cuisine-emoji {
+  font-size: 24px;
+}
+
+.cuisine-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--green-deep);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Dietary Pills */
+.dietary-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dietary-pill {
+  border-radius: 999px;
+  border: 1.5px solid var(--green-mid);
+  background: transparent;
+  color: var(--green-deep);
+  padding: 6px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.dietary-pill:hover {
+  transform: scale(1.05);
+}
+
+.dietary-pill.selected {
+  background: var(--green-deep);
+  color: var(--cream);
+  border-color: var(--green-deep);
+}
+
+/* Budget Row */
+.budget-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.budget-pill {
+  border-radius: 999px;
+  border: 1.5px solid var(--green-mid);
+  background: transparent;
+  color: var(--green-deep);
+  padding: 6px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 200ms ease;
+  white-space: nowrap;
+}
+
+.budget-pill:hover {
+  transform: scale(1.05);
+}
+
+.budget-pill.selected {
+  background: var(--green-deep);
+  color: var(--cream);
+  border-color: var(--green-deep);
+}
+
+.budget-custom-input {
+  width: 100px;
+  border: 1.5px solid var(--green-mid);
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 200ms ease;
+}
+
+.budget-custom-input:focus {
+  border-color: var(--green-deep);
+}
+
+/* Button Spinner */
+.button-spinner {
+  animation: spin 1.2s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error Banner */
+.error-banner {
+  margin-bottom: 16px;
+  background: rgba(212, 163, 115, 0.15);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--brown);
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .cuisine-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .budget-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .budget-pill,
+  .budget-custom-input {
+    width: 100%;
+  }
+}
