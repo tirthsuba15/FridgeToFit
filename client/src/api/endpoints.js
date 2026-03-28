@@ -61,6 +61,9 @@ export async function swapMeal(payload) {
  * @returns {Promise<object>}
  */
 export async function patchLeftovers(planId, payload) {
+  if (!planId) {
+    throw new Error('planId is required to update leftovers');
+  }
   const res = await client.patch(`/api/mealplan/${planId}/leftovers`, payload);
   return res.data;
 }
