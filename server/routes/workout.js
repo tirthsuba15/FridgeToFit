@@ -13,7 +13,7 @@ const { generateWorkoutPlan } = require('../ai/prompt');
 router.post('/generate', async (req, res) => {
   try {
     const { meal_plan_id, user_id, equipment: reqEquipment } = req.body;
-    if (!meal_plan_id) return res.status(400).json({ error: 'meal_plan_id required' });
+    if (!meal_plan_id && !user_id) return res.status(400).json({ error: 'meal_plan_id or user_id required' });
 
     // 1. Load user (from body user_id or via meal plan)
     let user;
@@ -25,9 +25,10 @@ router.post('/generate', async (req, res) => {
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // 2. Verify meal plan exists
-    const mealPlan = db.prepare('SELECT id FROM meal_plans WHERE id = ?').get(meal_plan_id);
-    if (!mealPlan) return res.status(404).json({ error: 'Meal plan not found' });
+    // 2. Verify meal plan exists (optional)
+    const mealPlan = meal_plan_id
+      ? db.prepare('SELECT id FROM meal_plans WHERE id = ?').get(meal_plan_id)
+      : null;
 
     // 3. Resolve equipment
     const equipment = reqEquipment || JSON.parse(user.equipment || '[]');
@@ -50,9 +51,11 @@ router.post('/generate', async (req, res) => {
       return res.status(502).json({ error: 'Workout AI unavailable' });
     }
 
-    // 6. Save to DB (upsert on meal_plan_id)
+    // 6. Save to DB (upsert on meal_plan_id if provided, else always insert)
     const id = uuidv4();
-    const existing = db.prepare('SELECT id FROM workout_plans WHERE meal_plan_id = ?').get(meal_plan_id);
+    const existing = meal_plan_id
+      ? db.prepare('SELECT id FROM workout_plans WHERE meal_plan_id = ?').get(meal_plan_id)
+      : null;
 
     try {
       if (existing) {
@@ -64,7 +67,7 @@ router.post('/generate', async (req, res) => {
         db.prepare(`
           INSERT INTO workout_plans (id, meal_plan_id, plan_json, generated_at)
           VALUES (?, ?, ?, datetime('now'))
-        `).run(id, meal_plan_id, JSON.stringify(workoutResult));
+        `).run(id, meal_plan_id || null, JSON.stringify(workoutResult));
       }
     } catch (err) {
       console.error('[workout/generate] DB error:', err.message);

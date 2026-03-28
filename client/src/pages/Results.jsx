@@ -72,36 +72,33 @@ export default function Results() {
       const userId = useUserStore.getState().userId;
       const store = useUserStore.getState();
 
-      const payload = {
-        user_id: userId,
-        ingredients: store.ingredients,
-        cuisines: store.cuisines,
-        dietary: store.dietary,
-        budget: store.budget,
-        equipment: store.equipment,
-        goal: store.goal,
-        activity_level: store.activityLevel
-      };
+      const ingredientIds = (store.ingredients || [])
+        .map(i => (typeof i === 'object' ? i.id : null))
+        .filter(Boolean);
 
       try {
-        const [mealResult, workoutResult] = await Promise.allSettled([
-          generateMealPlan(payload),
-          generateWorkoutPlan(payload)
-        ]);
+        // Meal plan first — workout needs the returned meal_plan_id
+        const mealResult = await generateMealPlan({
+          user_id: userId,
+          ingredient_ids: ingredientIds,
+          cuisine_prefs: store.cuisines,
+          dietary_flags: store.dietary,
+        });
+        const planId = mealResult.id;
+        mealPlanStore.setMealPlan(mealResult.plan_json || mealResult.plan);
+        mealPlanStore.setMealPlanId(planId);
+        useGroceryStore.getState().setPlanId(planId);
 
-        // Meal plan — required
-        if (mealResult.status === 'fulfilled') {
-          mealPlanStore.setMealPlan(mealResult.value.plan_json);
-        } else {
-          throw new Error('Meal plan generation failed');
-        }
-
-        // Workout plan — optional (graceful degradation)
-        if (workoutResult.status === 'fulfilled') {
-          mealPlanStore.setWorkoutPlan(workoutResult.value.plan_json);
-        } else {
+        // Workout — sequential so we have the meal_plan_id
+        try {
+          const workoutResult = await generateWorkoutPlan({
+            user_id: userId,
+            meal_plan_id: planId,
+            equipment: store.equipment,
+          });
+          mealPlanStore.setWorkoutPlan(workoutResult.plan_json || workoutResult.plan);
+        } catch {
           setWorkoutError(true);
-          // Fall back to SEED_WORKOUT_PLAN so right column isn't empty
           mealPlanStore.setWorkoutPlan(SEED_WORKOUT_PLAN);
         }
 
@@ -119,51 +116,30 @@ export default function Results() {
 
   // Handlers for meal card actions
   const handleSwap = async (day, slot) => {
-    const userId = useUserStore.getState().userId;
-    const store = useUserStore.getState();
-
+    const planId = useMealPlanStore.getState().mealPlanId;
     try {
-      const data = await swapMeal({
-        plan_id: userId,
-        day,
-        slot,
-        cuisine_preferences: store.cuisines,
-        dietary: store.dietary
-      });
-
-      // Update meal in store
+      const data = await swapMeal({ meal_plan_id: planId, day, slot });
       const currentPlan = mealPlanStore.mealPlan;
+      const newMeal = data.updated_slot || data.meal || data.new_recipe;
       mealPlanStore.setMealPlan({
         ...currentPlan,
-        [day]: {
-          ...currentPlan[day],
-          [slot]: data.meal
-        }
+        [day]: { ...currentPlan[day], [slot]: newMeal }
       });
     } catch (err) {
       console.error('Failed to swap meal:', err);
-      // Toast error will be handled in MealCard if needed
     }
   };
 
   const handleToggleLeftover = async (day, slot) => {
-    const userId = useUserStore.getState().userId;
-
-    // Optimistically toggle in store first
+    const planId = useMealPlanStore.getState().mealPlanId;
     mealPlanStore.toggleLeftover(day, slot);
-
-    // Get new is_leftover value
-    const newValue = mealPlanStore.leftovers[`${day}_${slot}`] ?? false;
-
+    const newValue = !mealPlanStore.leftovers[`${day}_${slot}`];
     try {
-      await patchLeftovers(userId, { day, slot, is_leftover: newValue });
-
-      // Update grocery list
-      const groceryData = await fetchGroceryList(userId);
-      useGroceryStore.getState().setItems(groceryData.items || []);
+      await patchLeftovers(planId, { day, slot, is_leftover: newValue });
+      const groceryData = await fetchGroceryList(planId);
+      useGroceryStore.getState().setItems(groceryData.grouped || groceryData.items || []);
     } catch (err) {
       console.error('Failed to update leftovers:', err);
-      // Revert the toggle
       mealPlanStore.toggleLeftover(day, slot);
     }
   };
@@ -337,15 +313,14 @@ export default function Results() {
               onClick={async () => {
                 try {
                   const userId = useUserStore.getState().userId;
+                  const planId = useMealPlanStore.getState().mealPlanId;
                   const store = useUserStore.getState();
-                  const payload = {
+                  const data = await generateWorkoutPlan({
                     user_id: userId,
+                    meal_plan_id: planId,
                     equipment: store.equipment,
-                    goal: store.goal,
-                    activity_level: store.activityLevel
-                  };
-                  const data = await generateWorkoutPlan(payload);
-                  mealPlanStore.setWorkoutPlan(data.plan_json);
+                  });
+                  mealPlanStore.setWorkoutPlan(data.plan_json || data.plan);
                   setWorkoutError(false);
                 } catch (err) {
                   console.error('Retry failed:', err);

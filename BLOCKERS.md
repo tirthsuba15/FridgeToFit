@@ -72,7 +72,7 @@
 ---
 
 ## BUG-006 — Workout generate requires meal_plan_id (not documented)
-- **Status:** OPEN
+- **Status:** FIXED — route now accepts user_id alone; Results.jsx generates meal plan first then workout sequentially
 - **Owner:** gordon/ai + tmoney/backend
 - **Severity:** HIGH
 - **Steps to reproduce:** `POST /api/workout/generate` with `{user_id, goal, equipment}` → `{"error":"meal_plan_id required"}`
@@ -83,7 +83,7 @@
 ---
 
 ## BUG-007 — Grocery route missing POST /generate; only GET /:id exists
-- **Status:** OPEN
+- **Status:** FIXED — frontend was the issue (Grocery.jsx was a stub); wired up GET /api/grocery/:id + built full grocery page
 - **Owner:** tmoney/backend
 - **Severity:** HIGH
 - **Steps to reproduce:** `POST /api/grocery/generate` → `Cannot POST /api/grocery/generate`
@@ -94,7 +94,7 @@
 ---
 
 ## BUG-008 — Dietary filter tests return 0 results (blocked by BUG-001)
-- **Status:** OPEN (blocked)
+- **Status:** FIXED — BUG-001 resolved (871 recipes seeded); dietary filter logic in filters.js is correct
 - **Owner:** tmoney/backend (filter logic), P1/teja (empty DB)
 - **Severity:** HIGH
 - **Steps to reproduce:** `GET /api/recipes/match?dietary=vegan` → `{"count":0,"recipes":[]}`
