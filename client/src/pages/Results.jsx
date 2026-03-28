@@ -85,7 +85,23 @@ export default function Results() {
           dietary_flags: store.dietary,
         });
         const planId = mealResult.id;
-        mealPlanStore.setMealPlan(mealResult.plan_json || mealResult.plan);
+        const rawPlan = mealResult.plan_json || mealResult.plan;
+
+        // Normalize array-style days [{day, meals:[{slot,...}]}] → {monday:{breakfast:{...}}}
+        const normalizePlan = (plan) => {
+          if (!plan?.days || !Array.isArray(plan.days)) return plan;
+          const out = {};
+          for (const d of plan.days) {
+            const key = d.day?.toLowerCase();
+            if (!key) continue;
+            out[key] = {};
+            for (const m of (d.meals || [])) {
+              out[key][m.slot] = m;
+            }
+          }
+          return out;
+        };
+        mealPlanStore.setMealPlan(normalizePlan(rawPlan) || rawPlan);
         mealPlanStore.setMealPlanId(planId);
         useGroceryStore.getState().setPlanId(planId);
 
@@ -242,10 +258,10 @@ export default function Results() {
                 return (
                   <div key={day} className="meal-cell">
                     <MealCard
-                      name={meal.name}
-                      cuisine_tag={meal.cuisine_tag}
-                      macros={meal.macros}
-                      prep_time_min={meal.prep_time_min}
+                      name={meal.name || meal.recipe_name || '—'}
+                      cuisine_tag={meal.cuisine_tag || '🍽️'}
+                      macros={meal.macros || { calories: '—', protein: '—', carbs: '—' }}
+                      prep_time_min={meal.prep_time_min ?? '—'}
                       is_leftover={isLeftover}
                       onSwap={() => handleSwap(day, slot)}
                       onToggleLeftover={() => handleToggleLeftover(day, slot)}
@@ -337,8 +353,8 @@ export default function Results() {
                 key={index}
                 day={workout.day}
                 focus={workout.focus}
-                exercises={workout.exercises}
-                isRest={workout.isRest}
+                exercises={workout.exercises || []}
+                isRest={workout.isRest ?? workout.rest ?? false}
               />
             ))}
           </div>
