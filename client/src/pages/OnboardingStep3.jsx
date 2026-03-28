@@ -100,25 +100,27 @@ export default function OnboardingStep3() {
       userStore.setBudget(`${budgetCustom}`);
     }
 
-    // Build profile object
+    // Build profile object with backend-expected field names
+    const session_token = crypto.randomUUID();
+    const budgetNum = budgetPreset === 'low' ? 40 : budgetPreset === 'medium' ? 75 : budgetPreset === 'high' ? 120 : Number(budgetCustom) || 75;
     const profile = {
-      ingredients: userStore.ingredients,
-      height: Number(userStore.height),
-      weight: Number(userStore.weight),
+      session_token,
       age: Number(userStore.age),
       sex: userStore.sex,
-      activity_level: userStore.activityLevel,
+      weight_kg: Number(userStore.weight),
+      height_cm: Number(userStore.height),
       goal: userStore.goal,
-      dietary: selectedDietary,
-      cuisines: selectedCuisines,
-      budget: budgetPreset || (budgetCustom ? `${budgetCustom}` : ''),
-      equipment: userStore.equipment
+      activity_level: userStore.activityLevel,
+      dietary_flags: JSON.stringify(selectedDietary),
+      cuisine_prefs: JSON.stringify(selectedCuisines),
+      weekly_budget_usd: budgetNum,
+      equipment: JSON.stringify(userStore.equipment),
     };
 
     try {
       const data = await createUser(profile);
-      userStore.setSessionToken(data.session_token);
-      userStore.setUserId(data.user_id);
+      userStore.setSessionToken(data.session_token || session_token);
+      userStore.setUserId(data.id || data.user_id);
       navigate('/results');
     } catch (err) {
       console.error('Failed to create user profile:', err);

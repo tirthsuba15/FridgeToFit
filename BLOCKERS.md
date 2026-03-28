@@ -7,7 +7,7 @@
 ---
 
 ## BUG-001 — Prod DB empty (0 recipes, 0 ingredients)
-- **Status:** OPEN
+- **Status:** FIXED — committed seeded DB (871 recipes) to git
 - **Owner:** P1/teja (railway config + DB)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Hit `GET /api/recipes/match` on prod — returns `{"count":0,"recipes":[]}`; `railway run node -e "db.prepare('SELECT COUNT(*) as c FROM recipes').get()"` → `{c: 0}`
@@ -18,7 +18,7 @@
 ---
 
 ## BUG-002 — OpenRouter API key is wrong (401 on all AI calls)
-- **Status:** OPEN
+- **Status:** FIXED — correct sk-or-v1-... key set via `railway variables set`
 - **Owner:** P1/teja (Railway config)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Trigger any AI route (mealplan/generate, workout/generate, ingredients/extract with image) — Railway logs show `[aiCall] HTTP 401: Missing Authentication header`
@@ -29,7 +29,7 @@
 ---
 
 ## BUG-003 — Frontend never sends Authorization header
-- **Status:** OPEN
+- **Status:** FIXED — axios interceptor added to client/src/api/client.js reads sessionToken from Zustand
 - **Owner:** aarnav/frontend
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Complete onboarding → Results page calls `/api/mealplan/generate` — network tab shows no `Authorization` header → 401 response
@@ -40,7 +40,7 @@
 ---
 
 ## BUG-004 — Frontend POST /api/users field names don't match backend
-- **Status:** OPEN
+- **Status:** FIXED — OnboardingStep3.jsx now sends height_cm, weight_kg, dietary_flags, cuisine_prefs, weekly_budget_usd, session_token
 - **Owner:** aarnav/frontend (primary) + tmoney/backend (secondary)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Complete all 3 onboarding steps and hit Submit — network tab shows 400 `{"error":"session_token required"}`
@@ -61,7 +61,7 @@
 ---
 
 ## BUG-005 — Photo upload (visionExtract) fails with OpenRouter 401
-- **Status:** OPEN
+- **Status:** FIXED — resolved by BUG-002 fix (correct OpenRouter key)
 - **Owner:** P1/teja (same root cause as BUG-002)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Upload any food photo on Step 1 → spinner spins → returns error
