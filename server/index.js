@@ -22,18 +22,31 @@ app.use(cors({
 
 app.use(express.json());
 
-// Serve React client
-app.use(express.static(path.join(__dirname, '../client/dist')));
+const DIST_PATH = path.join(__dirname, '../client/dist');
+const INDEX_PATH = path.join(DIST_PATH, 'index.html');
+
+// Serve React client static assets
+app.use(express.static(DIST_PATH));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Catch-all for React Router (Express 5 requires named wildcard)
-app.get('/{*path}', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  }
+app.get('/api/debug-paths', (req, res) => {
+  const fs = require('fs');
+  res.json({
+    __dirname,
+    DIST_PATH,
+    INDEX_PATH,
+    distExists: fs.existsSync(DIST_PATH),
+    indexExists: fs.existsSync(INDEX_PATH),
+  });
+});
+
+// Catch-all for React Router — serve index.html for all non-API routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(INDEX_PATH);
 });
 
 app.listen(PORT, () => {
