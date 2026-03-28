@@ -4,3 +4,7 @@ node_modules
 .claude/
 *.db-shm
 *.db-wal
+node_modules
+.DS_Store
+client/.vite/
+fridgetofit.db
