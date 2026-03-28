@@ -4,7 +4,7 @@
 
 | Person | Current Phase | Status | Last Built | Next |
 |--------|--------------|--------|-----------|------|
-| P1 | Phase 5 | ✅ Done | merge complete, prod live | Phase 6 |
+| P1 | Phase 6 | ✅ Done | QA done, 8 bugs logged | Phase 7 |
 | P2 | Phase 1 | 🔄 In progress | — | Phase 2 |
 | P3 | Pre-setup | 🔄 Design system | — | Phase 1 |
 | P4 | Phase 4 | ✅ Done | routes + DB wiring | Phase 5 |
@@ -22,6 +22,7 @@ P4 Phase 2 ✅ — all 5 AI functions implemented with retry logic + test harnes
 P4 Phase 3 ✅ — E2E pipeline tested: 5/5 meal plans, 6/6 workouts pass with validators
 P4 Phase 4 ✅ — All 5 AI functions wired to Express routes + SQLite, smoke test 5/5 pass
 P1 Phase 5 ✅ — All 4 branches merged into main, Railway prod live, /api/health green
+P1 Phase 6 ✅ — Full QA run: 8 bugs logged (3 CRITICAL, 3 HIGH), seeded DB committed, BUG-001 fixed
 
 <!-- example: -->
 <!-- 10:14am P2 Phase 1 ✅ — SQLite schema + migrations + SCHEMA.md pushed -->
