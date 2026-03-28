@@ -7,7 +7,7 @@
 ---
 
 ## BUG-001 — Prod DB empty (0 recipes, 0 ingredients)
-- **Status:** OPEN
+- **Status:** FIXED — committed seeded DB (871 recipes) to git
 - **Owner:** P1/teja (railway config + DB)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Hit `GET /api/recipes/match` on prod — returns `{"count":0,"recipes":[]}`; `railway run node -e "db.prepare('SELECT COUNT(*) as c FROM recipes').get()"` → `{c: 0}`
@@ -18,7 +18,7 @@
 ---
 
 ## BUG-002 — OpenRouter API key is wrong (401 on all AI calls)
-- **Status:** OPEN
+- **Status:** FIXED — correct sk-or-v1-... key set via `railway variables set`
 - **Owner:** P1/teja (Railway config)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Trigger any AI route (mealplan/generate, workout/generate, ingredients/extract with image) — Railway logs show `[aiCall] HTTP 401: Missing Authentication header`
@@ -29,7 +29,7 @@
 ---
 
 ## BUG-003 — Frontend never sends Authorization header
-- **Status:** OPEN
+- **Status:** FIXED — axios interceptor added to client/src/api/client.js reads sessionToken from Zustand
 - **Owner:** aarnav/frontend
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Complete onboarding → Results page calls `/api/mealplan/generate` — network tab shows no `Authorization` header → 401 response
@@ -40,7 +40,7 @@
 ---
 
 ## BUG-004 — Frontend POST /api/users field names don't match backend
-- **Status:** OPEN
+- **Status:** FIXED — OnboardingStep3.jsx now sends height_cm, weight_kg, dietary_flags, cuisine_prefs, weekly_budget_usd, session_token
 - **Owner:** aarnav/frontend (primary) + tmoney/backend (secondary)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Complete all 3 onboarding steps and hit Submit — network tab shows 400 `{"error":"session_token required"}`
@@ -61,7 +61,7 @@
 ---
 
 ## BUG-005 — Photo upload (visionExtract) fails with OpenRouter 401
-- **Status:** OPEN
+- **Status:** FIXED — resolved by BUG-002 fix (correct OpenRouter key)
 - **Owner:** P1/teja (same root cause as BUG-002)
 - **Severity:** CRITICAL
 - **Steps to reproduce:** Upload any food photo on Step 1 → spinner spins → returns error
@@ -72,7 +72,7 @@
 ---
 
 ## BUG-006 — Workout generate requires meal_plan_id (not documented)
-- **Status:** OPEN
+- **Status:** FIXED — route now accepts user_id alone; Results.jsx generates meal plan first then workout sequentially
 - **Owner:** gordon/ai + tmoney/backend
 - **Severity:** HIGH
 - **Steps to reproduce:** `POST /api/workout/generate` with `{user_id, goal, equipment}` → `{"error":"meal_plan_id required"}`
@@ -83,7 +83,7 @@
 ---
 
 ## BUG-007 — Grocery route missing POST /generate; only GET /:id exists
-- **Status:** OPEN
+- **Status:** FIXED — frontend was the issue (Grocery.jsx was a stub); wired up GET /api/grocery/:id + built full grocery page
 - **Owner:** tmoney/backend
 - **Severity:** HIGH
 - **Steps to reproduce:** `POST /api/grocery/generate` → `Cannot POST /api/grocery/generate`
@@ -94,7 +94,7 @@
 ---
 
 ## BUG-008 — Dietary filter tests return 0 results (blocked by BUG-001)
-- **Status:** OPEN (blocked)
+- **Status:** FIXED — BUG-001 resolved (871 recipes seeded); dietary filter logic in filters.js is correct
 - **Owner:** tmoney/backend (filter logic), P1/teja (empty DB)
 - **Severity:** HIGH
 - **Steps to reproduce:** `GET /api/recipes/match?dietary=vegan` → `{"count":0,"recipes":[]}`
@@ -103,3 +103,16 @@
 - **Fix hint:** Resolve BUG-001 first, then re-run dietary filter tests
 
 ---
+
+---
+
+## BUG-009 — /api/recipes/match returns 0 when user has no saved ingredients (threshold=0.5 hardcoded)
+- **Status:** FIXED — threshold now 0 when no ingredients (returns all dietary-filtered recipes)
+- **Owner:** P1/teja
+- **Severity:** MEDIUM
+- **Fix:** server/routes/recipes.js: dynamic threshold (0.3 with ingredients, 0 without)
+
+## KNOWN — Demo account token
+- session_token: `demo-token-2024`
+- user_id: `f3937e6c-2b8d-486d-8998-d1a732f29aae`
+- goal: maintain | budget: $75 | cuisines: italian, mexican | equipment: Dumbbells

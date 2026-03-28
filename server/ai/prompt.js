@@ -146,13 +146,8 @@ async function visionExtract(base64Image) {
 async function generateMealPlan(params) {
   const { recipes, tdee, macros, cuisines, dietary, budget } = params;
 
-  const hasDietary = Array.isArray(dietary) && dietary.length > 0 &&
-    !(dietary.length === 1 && dietary[0] === "none");
-  const filteredRecipes = hasDietary
-    ? recipes.filter(r =>
-        dietary.every(flag => Array.isArray(r.dietary) && r.dietary.includes(flag))
-      )
-    : recipes;
+  // recipes are already filtered upstream by mealplan/generate (filterRecipes util)
+  const filteredRecipes = recipes.length > 0 ? recipes : [];
   const validIds = filteredRecipes.map(r => r.recipe_id);
 
   const maxRepeats = filteredRecipes.length >= 11 ? 2

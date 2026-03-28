@@ -91,7 +91,7 @@ export default function OnboardingStep1() {
     navigate('/onboarding/2');
   };
 
-  const currentIngredients = activeTab === 'photo' ? typeIngredients : typeIngredients;
+  const currentIngredients = typeIngredients;
   const canProceed = currentIngredients.length >= 1;
 
   return (

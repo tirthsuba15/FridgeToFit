@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useMealPlanStore from '../stores/mealPlanStore';
 import useUserStore from '../stores/userStore';
 import useGroceryStore from '../stores/groceryStore';
-import { generateMealPlan, generateWorkoutPlan, swapMeal, patchLeftovers, fetchGroceryList } from '../api/endpoints';
+import { generateMealPlan, generateWorkoutPlan, swapMeal, patchLeftovers, fetchGroceryList, saveIngredientNames } from '../api/endpoints';
 import MealCard from '../components/MealCard';
 import WorkoutCard from '../components/WorkoutCard';
 import './Results.css';
@@ -72,36 +72,57 @@ export default function Results() {
       const userId = useUserStore.getState().userId;
       const store = useUserStore.getState();
 
-      const payload = {
-        user_id: userId,
-        ingredients: store.ingredients,
-        cuisines: store.cuisines,
-        dietary: store.dietary,
-        budget: store.budget,
-        equipment: store.equipment,
-        goal: store.goal,
-        activity_level: store.activityLevel
-      };
+      // Separate typed strings vs photo objects (which already have DB IDs)
+      const allIngredients = store.ingredients || [];
+      const ingredientStrings = allIngredients.filter(i => typeof i === 'string');
+      const ingredientIds = allIngredients
+        .map(i => (typeof i === 'object' ? i.id : null))
+        .filter(Boolean);
+
+      // If user typed ingredients (not from photo), save them to DB so matchRecipes can use them
+      if (ingredientStrings.length > 0) {
+        try { await saveIngredientNames(ingredientStrings); } catch {}
+      }
 
       try {
-        const [mealResult, workoutResult] = await Promise.allSettled([
-          generateMealPlan(payload),
-          generateWorkoutPlan(payload)
-        ]);
+        // Meal plan first — workout needs the returned meal_plan_id
+        const mealResult = await generateMealPlan({
+          user_id: userId,
+          ingredient_ids: ingredientIds,
+          cuisine_prefs: store.cuisines,
+          dietary_flags: store.dietary,
+        });
+        const planId = mealResult.id;
+        const rawPlan = mealResult.plan_json || mealResult.plan;
 
-        // Meal plan — required
-        if (mealResult.status === 'fulfilled') {
-          mealPlanStore.setMealPlan(mealResult.value.plan_json);
-        } else {
-          throw new Error('Meal plan generation failed');
-        }
+        // Normalize array-style days [{day, meals:[{slot,...}]}] → {monday:{breakfast:{...}}}
+        const normalizePlan = (plan) => {
+          if (!plan?.days || !Array.isArray(plan.days)) return plan;
+          const out = {};
+          for (const d of plan.days) {
+            const key = d.day?.toLowerCase();
+            if (!key) continue;
+            out[key] = {};
+            for (const m of (d.meals || [])) {
+              out[key][m.slot] = m;
+            }
+          }
+          return out;
+        };
+        mealPlanStore.setMealPlan(normalizePlan(rawPlan) || rawPlan);
+        mealPlanStore.setMealPlanId(planId);
+        useGroceryStore.getState().setPlanId(planId);
 
-        // Workout plan — optional (graceful degradation)
-        if (workoutResult.status === 'fulfilled') {
-          mealPlanStore.setWorkoutPlan(workoutResult.value.plan_json);
-        } else {
+        // Workout — sequential so we have the meal_plan_id
+        try {
+          const workoutResult = await generateWorkoutPlan({
+            user_id: userId,
+            meal_plan_id: planId,
+            equipment: store.equipment,
+          });
+          mealPlanStore.setWorkoutPlan(workoutResult.plan_json || workoutResult.plan);
+        } catch {
           setWorkoutError(true);
-          // Fall back to SEED_WORKOUT_PLAN so right column isn't empty
           mealPlanStore.setWorkoutPlan(SEED_WORKOUT_PLAN);
         }
 
@@ -119,51 +140,31 @@ export default function Results() {
 
   // Handlers for meal card actions
   const handleSwap = async (day, slot) => {
-    const userId = useUserStore.getState().userId;
-    const store = useUserStore.getState();
-
+    const planId = useMealPlanStore.getState().mealPlanId;
     try {
-      const data = await swapMeal({
-        plan_id: userId,
-        day,
-        slot,
-        cuisine_preferences: store.cuisines,
-        dietary: store.dietary
-      });
-
-      // Update meal in store
+      const data = await swapMeal({ meal_plan_id: planId, day, slot });
       const currentPlan = mealPlanStore.mealPlan;
+      const newMeal = data.updated_slot || data.meal || data.new_recipe;
       mealPlanStore.setMealPlan({
         ...currentPlan,
-        [day]: {
-          ...currentPlan[day],
-          [slot]: data.meal
-        }
+        [day]: { ...currentPlan[day], [slot]: newMeal }
       });
     } catch (err) {
       console.error('Failed to swap meal:', err);
-      // Toast error will be handled in MealCard if needed
     }
   };
 
   const handleToggleLeftover = async (day, slot) => {
-    const userId = useUserStore.getState().userId;
-
-    // Optimistically toggle in store first
+    const planId = useMealPlanStore.getState().mealPlanId;
+    // Compute newValue BEFORE toggling so the server gets the correct intended value
+    const newValue = !(mealPlanStore.leftovers[`${day}_${slot}`] ?? false);
     mealPlanStore.toggleLeftover(day, slot);
-
-    // Get new is_leftover value
-    const newValue = mealPlanStore.leftovers[`${day}_${slot}`] ?? false;
-
     try {
-      await patchLeftovers(userId, { day, slot, is_leftover: newValue });
-
-      // Update grocery list
-      const groceryData = await fetchGroceryList(userId);
-      useGroceryStore.getState().setItems(groceryData.items || []);
+      await patchLeftovers(planId, { day, slot, is_leftover: newValue });
+      const groceryData = await fetchGroceryList(planId);
+      useGroceryStore.getState().setItems(groceryData.grouped || groceryData.items || []);
     } catch (err) {
       console.error('Failed to update leftovers:', err);
-      // Revert the toggle
       mealPlanStore.toggleLeftover(day, slot);
     }
   };
@@ -266,10 +267,10 @@ export default function Results() {
                 return (
                   <div key={day} className="meal-cell">
                     <MealCard
-                      name={meal.name}
-                      cuisine_tag={meal.cuisine_tag}
-                      macros={meal.macros}
-                      prep_time_min={meal.prep_time_min}
+                      name={meal.name || meal.recipe_name || '—'}
+                      cuisine_tag={meal.cuisine_tag || '🍽️'}
+                      macros={meal.macros || { calories: '—', protein: '—', carbs: '—' }}
+                      prep_time_min={meal.prep_time_min ?? '—'}
                       is_leftover={isLeftover}
                       onSwap={() => handleSwap(day, slot)}
                       onToggleLeftover={() => handleToggleLeftover(day, slot)}
@@ -337,15 +338,14 @@ export default function Results() {
               onClick={async () => {
                 try {
                   const userId = useUserStore.getState().userId;
+                  const planId = useMealPlanStore.getState().mealPlanId;
                   const store = useUserStore.getState();
-                  const payload = {
+                  const data = await generateWorkoutPlan({
                     user_id: userId,
+                    meal_plan_id: planId,
                     equipment: store.equipment,
-                    goal: store.goal,
-                    activity_level: store.activityLevel
-                  };
-                  const data = await generateWorkoutPlan(payload);
-                  mealPlanStore.setWorkoutPlan(data.plan_json);
+                  });
+                  mealPlanStore.setWorkoutPlan(data.plan_json || data.plan);
                   setWorkoutError(false);
                 } catch (err) {
                   console.error('Retry failed:', err);
@@ -362,8 +362,8 @@ export default function Results() {
                 key={index}
                 day={workout.day}
                 focus={workout.focus}
-                exercises={workout.exercises}
-                isRest={workout.isRest}
+                exercises={workout.exercises || []}
+                isRest={workout.isRest ?? workout.rest ?? false}
               />
             ))}
           </div>

@@ -3,4 +3,3 @@ server/node_modules/
 client/node_modules/
 *.log
 .DS_Store
-server/db/fridgetofit.db

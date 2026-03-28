@@ -26,9 +26,9 @@ export default function MealCard({
 
       {/* Macro Row */}
       <div className="macro-row">
-        <span className="macro-badge">🔥 {macros.calories} kcal</span>
-        <span className="macro-badge">💪 {macros.protein}g</span>
-        <span className="macro-badge">🌾 {macros.carbs}g</span>
+        <span className="macro-badge">🔥 {macros?.calories ?? '—'} kcal</span>
+        <span className="macro-badge">💪 {macros?.protein ?? '—'}g</span>
+        <span className="macro-badge">🌾 {macros?.carbs ?? '—'}g</span>
       </div>
 
       {/* Prep Time Badge */}

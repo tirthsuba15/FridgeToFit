@@ -5,12 +5,10 @@ const requireUser = require('../middleware/auth');
 const { estimateCost, getAisle } = require('../utils/cost');
 const { calculateTDEE, getMacroTargets } = require('../utils/tdee');
 
-// POST /api/grocery/generate — frontend-friendly alias
+// POST /api/grocery/generate — frontend-friendly alias for GET /:mealplan_id
 router.post('/generate', requireUser, async (req, res) => {
   const { meal_plan_id } = req.body;
   if (!meal_plan_id) return res.status(400).json({ error: 'meal_plan_id required' });
-  req.params = { mealplan_id: meal_plan_id };
-  // Forward to GET handler logic — just re-query directly
   try {
     const plan = db.prepare('SELECT * FROM meal_plans WHERE id = ? AND user_id = ?')
       .get(meal_plan_id, req.user.id);
@@ -21,7 +19,18 @@ router.post('/generate', requireUser, async (req, res) => {
     const leftoverOverrides = groceryRow ? JSON.parse(groceryRow.leftover_overrides || '[]') : [];
     const leftoverKeys = new Set(leftoverOverrides);
 
-    const days = planJson.days || {};
+    // Normalize array-style days to object-style
+    const rawDays = planJson.days || {};
+    let days = rawDays;
+    if (Array.isArray(rawDays)) {
+      days = {};
+      for (const d of rawDays) {
+        const key = (d.day || '').toLowerCase();
+        days[key] = {};
+        for (const m of (d.meals || [])) { days[key][m.slot] = m; }
+      }
+    }
+
     for (const [day, slots] of Object.entries(days)) {
       for (const [slot, meal] of Object.entries(slots)) {
         if (meal?.is_leftover) leftoverKeys.add(`${day}:${slot}`);
@@ -43,6 +52,15 @@ router.post('/generate', requireUser, async (req, res) => {
           meal?.recipe?.ingredients ||
           [];
 
+        if (!ingredients || ingredients.length === 0) {
+          if (meal?.recipe_id) {
+            const recipe = db.prepare('SELECT ingredient_list FROM recipes WHERE id = ?').get(meal.recipe_id);
+            if (recipe?.ingredient_list) {
+              try { ingredients = JSON.parse(recipe.ingredient_list); } catch { ingredients = []; }
+            }
+          }
+        }
+
         if (typeof ingredients === 'string') {
           try { ingredients = JSON.parse(ingredients); } catch { ingredients = []; }
         }
@@ -50,8 +68,8 @@ router.post('/generate', requireUser, async (req, res) => {
           ingredients = ingredients.map(i => i.name || i.ingredient || String(i));
         }
 
-        for (const ing of ingredients) {
-          const name = (typeof ing === 'string' ? ing : String(ing)).toLowerCase().trim();
+        for (const ing of (ingredients || [])) {
+          const name = (typeof ing === 'string' ? ing : (ing.name || '')).toLowerCase().trim();
           const qty = typeof ing === 'object' ? (ing.quantity_g || 100) : 100;
           if (!name || name.length < 2) continue;
           if (ownedIngredients.some(o => name.includes(o) || o.includes(name))) continue;
@@ -64,11 +82,10 @@ router.post('/generate', requireUser, async (req, res) => {
     const grouped = {};
     let total_cost_usd = 0;
     for (const [name, data] of Object.entries(ingredientTotals)) {
-      const aisle = data.aisle;
       const cost = estimateCost(name, data.quantity_g);
       total_cost_usd += cost;
-      if (!grouped[aisle]) grouped[aisle] = [];
-      grouped[aisle].push({ name, quantity_g: Math.round(data.quantity_g), estimated_cost_usd: cost });
+      if (!grouped[data.aisle]) grouped[data.aisle] = [];
+      grouped[data.aisle].push({ name, quantity_g: Math.round(data.quantity_g), estimated_cost_usd: cost });
     }
     total_cost_usd = Math.round(total_cost_usd * 100) / 100;
 
@@ -106,8 +123,21 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
     // Build set of leftover slot keys e.g. "mon:breakfast"
     const leftoverKeys = new Set(leftoverOverrides);
 
+    // Normalize plan shape: array [{day, meals:[{slot, ...}]}] → {day: {slot: meal}}
+    const rawDays = planJson.days || {};
+    let days = rawDays;
+    if (Array.isArray(rawDays)) {
+      days = {};
+      for (const d of rawDays) {
+        const key = (d.day || '').toLowerCase();
+        days[key] = {};
+        for (const m of (d.meals || [])) {
+          days[key][m.slot] = m;
+        }
+      }
+    }
+
     // Also collect is_leftover flags from plan_json itself
-    const days = planJson.days || {};
     for (const [day, slots] of Object.entries(days)) {
       for (const [slot, meal] of Object.entries(slots)) {
         if (meal?.is_leftover) leftoverKeys.add(`${day}:${slot}`);
@@ -120,13 +150,28 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
     const needed = {};   // name → quantity_g needed to buy
     const available = {}; // name → quantity_g already cooked/available from leftovers
 
+    const parseIngredients = (meal) => {
+      // Try inline ingredient_list first
+      const raw = meal?.ingredient_list || meal?.ingredients;
+      if (raw && raw.length > 0) {
+        return Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : []);
+      }
+      // Fall back to DB lookup by recipe_id
+      if (meal?.recipe_id) {
+        const recipe = db.prepare('SELECT ingredient_list FROM recipes WHERE id = ?').get(meal.recipe_id);
+        if (recipe?.ingredient_list) {
+          try { return JSON.parse(recipe.ingredient_list); } catch { return []; }
+        }
+      }
+      return [];
+    };
+
     const ownedIngredients = db.prepare('SELECT name FROM ingredients').all()
       .map(i => i.name.toLowerCase().trim());
 
     for (const [day, slots] of Object.entries(days)) {
       for (const [slot, meal] of Object.entries(slots)) {
         const key = `${day}:${slot}`;
-        if (leftoverKeys.has(key)) continue;
 
         // Handle multiple possible field names from Gordon's AI output
         let ingredients =
@@ -135,6 +180,10 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
           meal?.ingredientList ||
           meal?.recipe?.ingredients ||
           [];
+
+        if (!ingredients || ingredients.length === 0) {
+          ingredients = parseIngredients(meal);
+        }
 
         // If it's a string, parse it
         if (typeof ingredients === 'string') {
@@ -149,8 +198,8 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
         const isLeftover = leftoverKeys.has(key);
         const target = isLeftover ? available : needed;
 
-        for (const ing of ingredients) {
-          const name = (typeof ing === 'string' ? ing : String(ing)).toLowerCase().trim();
+        for (const ing of (ingredients || [])) {
+          const name = (typeof ing === 'string' ? ing : (ing.name || '')).toLowerCase().trim();
           const qty = typeof ing === 'object' ? (ing.quantity_g || ing.quantity || 100) : 100;
           if (!name || name.length < 2) continue;
 

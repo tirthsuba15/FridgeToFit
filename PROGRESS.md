@@ -23,6 +23,7 @@ P4 Phase 3 ✅ — E2E pipeline tested: 5/5 meal plans, 6/6 workouts pass with v
 P4 Phase 4 ✅ — All 5 AI functions wired to Express routes + SQLite, smoke test 5/5 pass
 P1 Phase 5 ✅ — All 4 branches merged into main, Railway prod live, /api/health green
 P1 Phase 6 ✅ — Full QA run: 8 bugs logged (3 CRITICAL, 3 HIGH), seeded DB committed, BUG-001 fixed
+P1 Phase 7 ✅ — BUG-002/003/004/005 fixed: OpenRouter key, auth header interceptor, field name alignment
 
 <!-- example: -->
 <!-- 10:14am P2 Phase 1 ✅ — SQLite schema + migrations + SCHEMA.md pushed -->
@@ -34,3 +35,5 @@ P1 Phase 6 ✅ — Full QA run: 8 bugs logged (3 CRITICAL, 3 HIGH), seeded DB co
 - [x] Phase 4 — TDEE + filters + nutrition enrichment
 - [x] Phase 5 — recipe match + meal plan + workout endpoints
 - [x] Phase 6 — grocery diff (leftovers-aware) + macro summary
+
+P1 Phase 7b ✅ — Merge 2 done: tmoney/backend + aarnav/frontend integrated; POST /grocery/generate added; cuisine assignment helper added; demo account seeded; recipes/match threshold fix

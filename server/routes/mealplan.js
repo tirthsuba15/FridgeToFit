@@ -17,9 +17,7 @@ function assignCuisinesForWeek(cuisine_prefs) {
   days.forEach(day => {
     assignment[day] = {};
     const shuffled = [...cuisine_prefs].sort(() => Math.random() - 0.5);
-    slots.forEach((slot, i) => {
-      assignment[day][slot] = shuffled[i % shuffled.length];
-    });
+    slots.forEach((slot, i) => { assignment[day][slot] = shuffled[i % shuffled.length]; });
   });
   return assignment;
 }
@@ -52,15 +50,17 @@ router.post('/generate', async (req, res) => {
         GROUP BY r.id
         LIMIT 30
       `).all(...ingredient_ids);
-    } else {
-      // Fallback: use recipeMatcher with all ingredients
+    }
+
+    // Fall back to recipeMatcher when JOIN returns nothing (recipe_ingredients unpopulated)
+    if (!recipes || recipes.length === 0) {
       const allRecipes = db.prepare('SELECT * FROM recipes').all();
       const userIngredients = db.prepare('SELECT name FROM ingredients').all();
       const userIngredientNames = userIngredients.map(i => i.name);
       const threshold = userIngredientNames.length > 0 ? 0.3 : 0;
       recipes = matchRecipes({
         recipes: allRecipes,
-        userIngredientNames,
+        userIngredientNames: userIngredientNames.length > 0 ? userIngredientNames : [''],
         dietary_flags,
         cuisine_prefs,
         threshold,
@@ -155,10 +155,11 @@ router.post('/swap', async (req, res) => {
     const plan = JSON.parse(planRow.plan_json);
 
     // Support both plan shapes: array days or object days
+    // Normalize day comparison (frontend sends 'monday', AI may store 'Monday')
     const dayObj = plan.days
       ? (Array.isArray(plan.days)
-          ? plan.days.find(d => d.day === day)
-          : plan.days[day])
+          ? plan.days.find(d => (d.day || '').toLowerCase() === day.toLowerCase())
+          : (plan.days[day] || plan.days[day.toLowerCase()] || plan.days[day.charAt(0).toUpperCase() + day.slice(1)]))
       : null;
 
     const currentMeal = dayObj
@@ -190,7 +191,7 @@ router.post('/swap', async (req, res) => {
       swapResult = await swapMeal({
         current_recipe: {
           recipe_id: currentMeal.recipe_id,
-          recipe_name: currentMeal.recipe_name || currentMeal.name,
+          recipe_name: currentMeal.recipe_name || currentMeal.name || 'Unknown',
           prep_time_min: currentMeal.prep_time_min,
         },
         slot,

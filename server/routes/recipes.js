@@ -25,10 +25,10 @@ router.get('/match', requireUser, (req, res) => {
 
     const matched = matchRecipes({
       recipes,
-      userIngredientNames,
+      userIngredientNames: userIngredientNames.length > 0 ? userIngredientNames : [''],
       dietary_flags,
       cuisine_prefs,
-      threshold
+      threshold,
     });
 
     return res.json({
@@ -39,7 +39,7 @@ router.get('/match', requireUser, (req, res) => {
         cuisine_tag: r.cuisine_tag,
         prep_time_min: r.prep_time_min,
         match_score: Math.round(r.match_score * 100),
-        ingredient_list: JSON.parse(r.ingredient_list || '[]'),
+        ingredient_list: (() => { try { return JSON.parse(r.ingredient_list || '[]'); } catch { return []; } })(),
         image_url: r.image_url
       }))
     });
