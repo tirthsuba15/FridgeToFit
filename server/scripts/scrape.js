@@ -59,6 +59,11 @@ const insert = db.prepare(`
   VALUES (@name, @cuisine_tag, @ingredient_list, @prep_time_min, @instructions_url, @image_url)
 `);
 
+const update = db.prepare(`
+  UPDATE recipes SET name=@name, cuisine_tag=@cuisine_tag, ingredient_list=@ingredient_list,
+  prep_time_min=@prep_time_min, image_url=@image_url WHERE instructions_url=@instructions_url
+`);
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -161,12 +166,27 @@ async function scrapeRecipe(url, cuisineHint) {
   }
   cuisine_tag = (cuisine_tag || 'global').trim().toLowerCase();
 
-  // ingredient_list
+  // ingredient_list — try progressively broader selectors
   const ingredients = [];
-  $('.wprm-recipe-ingredient, .ingredient, ul.ingredients li').each((_, el) => {
-    const text = $(el).text().trim();
-    if (text) ingredients.push(text);
-  });
+  const ingredientSelectors = [
+    '.wprm-recipe-ingredient',
+    '.ingredient',
+    'ul.ingredients li',
+    '[class*="ingredient"] li',
+    '.recipe-ingredients li',
+    '.tasty-recipes-ingredients li',
+    '.mv-create-ingredients li',
+  ];
+  for (const sel of ingredientSelectors) {
+    $(sel).each((_, el) => {
+      const text = $(el).text().trim();
+      if (text) ingredients.push(text);
+    });
+    if (ingredients.length > 0) break;
+  }
+  // deduplicate (some selectors overlap)
+  const uniqueIngredients = [...new Set(ingredients)];
+  if (uniqueIngredients.length === 0) uniqueIngredients.push('ingredients not listed');
 
   // prep_time_min
   let prep_time_min = null;
@@ -191,19 +211,42 @@ async function scrapeRecipe(url, cuisineHint) {
     if (m) prep_time_min = parsePrepTime(m[1]);
   }
 
-  // Strategy 2 — fallback
+  // Strategy 2 — fallback (use uniqueIngredients count, min 1 since we always have at least placeholder)
   if (!prep_time_min) {
-    prep_time_min = fallbackPrepTime(ingredients.length);
+    const realCount = uniqueIngredients[0] === 'ingredients not listed' ? 0 : uniqueIngredients.length;
+    prep_time_min = fallbackPrepTime(realCount);
     usedFallback = true;
   }
 
   const image_url = $('meta[property="og:image"]').attr('content') || '';
 
-  return { name, cuisine_tag, ingredient_list: JSON.stringify(ingredients), prep_time_min, instructions_url: url, image_url, usedFallback };
+  return { name, cuisine_tag, ingredient_list: JSON.stringify(uniqueIngredients), prep_time_min, instructions_url: url, image_url, usedFallback };
 }
 
 // --- MAIN ---
 async function main() {
+  // --urls="url1,url2" mode: targeted UPDATE for specific recipes
+  const urlsArg = process.argv.find(a => a.startsWith('--urls='));
+  if (urlsArg) {
+    const targetUrls = urlsArg.replace('--urls=', '').split(',').map(u => u.trim()).filter(Boolean);
+    console.log(`Re-scraping ${targetUrls.length} specific URLs (UPDATE mode)...`);
+    let updated = 0;
+    for (const url of targetUrls) {
+      await sleep(DELAY_MS);
+      try {
+        const recipe = await scrapeRecipe(url, null);
+        update.run(recipe);
+        updated++;
+        console.log(`  Updated: ${recipe.name}`);
+      } catch (err) {
+        console.error(`ERROR [${url}]: ${err.message}`);
+      }
+    }
+    console.log(`\nUpdated ${updated} recipes.`);
+    db.close();
+    return;
+  }
+
   const urlToCuisine = await getRecipeUrls();
   const entries = Array.from(urlToCuisine.entries());
   const total = entries.length;
