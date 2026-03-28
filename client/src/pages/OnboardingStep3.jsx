@@ -23,15 +23,15 @@ export default function OnboardingStep3() {
   const [error, setError] = useState(null);
 
   const cuisines = [
-    { id: 'mexican', label: 'Mexican' },
-    { id: 'korean', label: 'Korean' },
-    { id: 'italian', label: 'Italian' },
-    { id: 'indian', label: 'Indian' },
-    { id: 'west_african', label: 'West African' },
-    { id: 'japanese', label: 'Japanese' },
-    { id: 'french', label: 'French' },
-    { id: 'greek', label: 'Greek' },
-    { id: 'thai', label: 'Thai' },
+    { id: 'mexican', label: 'Mexican', image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80' },
+    { id: 'korean', label: 'Korean', image: 'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=400&q=80' },
+    { id: 'italian', label: 'Italian', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&q=80' },
+    { id: 'indian', label: 'Indian', image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80' },
+    { id: 'west_african', label: 'West African', image: 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=400&q=80' },
+    { id: 'japanese', label: 'Japanese', image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400&q=80' },
+    { id: 'french', label: 'French', image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80' },
+    { id: 'greek', label: 'Greek', image: 'https://images.unsplash.com/photo-1544025162-d76538b2ed58?w=400&q=80' },
+    { id: 'thai', label: 'Thai', image: 'https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=400&q=80' },
   ];
 
   const dietary = [
@@ -199,24 +199,30 @@ export default function OnboardingStep3() {
                       key={cuisine.id}
                       onClick={() => handleCuisineToggle(cuisine.id)}
                       className={[
-                        'relative aspect-square overflow-hidden cursor-pointer transition-all duration-300',
-                        isSelected
-                          ? 'bg-surface-container-highest border-2 border-primary'
-                          : 'bg-surface-container-low hover:bg-surface-container-highest',
+                        'relative aspect-square overflow-hidden cursor-pointer transition-all duration-300 group',
+                        isSelected ? 'border-2 border-primary' : '',
                       ].join(' ')}
                     >
-                      <div className="absolute inset-0 p-4 flex flex-col justify-between">
+                      {/* Background image */}
+                      <img
+                        src={cuisine.image}
+                        alt={cuisine.label}
+                        className={[
+                          'absolute inset-0 w-full h-full object-cover transition-all duration-300',
+                          isSelected ? 'opacity-60 grayscale-0' : 'opacity-40 grayscale group-hover:opacity-60',
+                        ].join(' ')}
+                      />
+                      {/* Dark gradient overlay at bottom */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                      {/* Content */}
+                      <div className="absolute inset-0 p-3 flex flex-col justify-between">
                         <span
-                          className="material-symbols-outlined text-primary self-end"
-                          style={
-                            isSelected
-                              ? { fontVariationSettings: "'FILL' 1" }
-                              : { opacity: 0 }
-                          }
+                          className="material-symbols-outlined self-end text-white drop-shadow"
+                          style={isSelected ? { fontVariationSettings: "'FILL' 1" } : { opacity: 0 }}
                         >
                           check_circle
                         </span>
-                        <span className="text-xs font-black uppercase tracking-widest">
+                        <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">
                           {cuisine.label}
                         </span>
                       </div>
