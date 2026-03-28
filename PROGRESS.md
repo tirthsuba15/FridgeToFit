@@ -4,7 +4,7 @@
 
 | Person | Current Phase | Status | Last Built | Next |
 |--------|--------------|--------|-----------|------|
-| P1 | Phase 1 | 🔄 In progress | — | Phase 2 |
+| P1 | Phase 5 | ✅ Done | merge complete, prod live | Phase 6 |
 | P2 | Phase 1 | 🔄 In progress | — | Phase 2 |
 | P3 | Pre-setup | 🔄 Design system | — | Phase 1 |
 | P4 | Phase 4 | ✅ Done | routes + DB wiring | Phase 5 |
@@ -21,6 +21,7 @@ P4 Phase 1 ✅ — prompt design + ai/prompt.js scaffold (5 OpenRouter functions
 P4 Phase 2 ✅ — all 5 AI functions implemented with retry logic + test harness
 P4 Phase 3 ✅ — E2E pipeline tested: 5/5 meal plans, 6/6 workouts pass with validators
 P4 Phase 4 ✅ — All 5 AI functions wired to Express routes + SQLite, smoke test 5/5 pass
+P1 Phase 5 ✅ — All 4 branches merged into main, Railway prod live, /api/health green
 
 <!-- example: -->
 <!-- 10:14am P2 Phase 1 ✅ — SQLite schema + migrations + SCHEMA.md pushed -->
