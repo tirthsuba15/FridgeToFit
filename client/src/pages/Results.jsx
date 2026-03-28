@@ -4,9 +4,6 @@ import useMealPlanStore from '../stores/mealPlanStore';
 import useUserStore from '../stores/userStore';
 import useGroceryStore from '../stores/groceryStore';
 import { generateMealPlan, generateWorkoutPlan, swapMeal, patchLeftovers, fetchGroceryList, saveIngredientNames } from '../api/endpoints';
-import MealCard from '../components/MealCard';
-import WorkoutCard from '../components/WorkoutCard';
-import './Results.css';
 
 const SEED_MEAL_PLAN = {
   monday: {
@@ -169,206 +166,419 @@ export default function Results() {
     }
   };
 
+  // ── Loading State ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner">
-          <svg
-            width="60"
-            height="60"
-            viewBox="0 0 40 40"
-            xmlns="http://www.w3.org/2000/svg"
-            className="spinning-leaf"
-          >
-            <path
-              d="M20 5 Q30 15 20 35 Q10 15 20 5Z"
-              fill="var(--green-deep)"
-            />
-          </svg>
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-primary opacity-60">
+            Synthesizing your protocol...
+          </p>
         </div>
-        <h2 className="loading-title">🌿 Building your personalized plan...</h2>
-        <p className="loading-subtext">Crunching your fridge, goals, and preferences...</p>
       </div>
     );
   }
 
+  // ── Error State ────────────────────────────────────────────────────────────
   if (fetchError) {
     return (
-      <div className="loading-container">
-        <div className="error-card">
-          <h2 className="error-title">🌿 Something went wrong</h2>
-          <p className="error-text">We couldn't generate your meal plan. Please go back and try again.</p>
-          <button className="error-button" onClick={() => navigate('/onboarding/3')}>
-            ← Go Back
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-6 px-8">
+        <div className="max-w-sm w-full bg-surface-container-lowest p-8 shadow-[0_20px_40px_rgba(0,0,0,0.06)]">
+          <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-primary opacity-60 mb-4">
+            System Error // Protocol Failed
+          </p>
+          <h2 className="text-2xl font-black tracking-tighter text-black mb-3 leading-none">
+            Generation Failed.
+          </h2>
+          <p className="text-sm text-on-surface-variant font-light mb-6">
+            We could not generate your plan. Please go back and try again.
+          </p>
+          <button
+            className="bg-primary text-on-primary-container px-5 py-2 text-xs font-bold uppercase tracking-widest w-full"
+            onClick={() => navigate('/onboarding/3')}
+          >
+            Go Back
           </button>
         </div>
       </div>
     );
   }
 
+  // ── Data Setup ─────────────────────────────────────────────────────────────
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const slots = ['breakfast', 'lunch', 'dinner'];
-  const slotLabels = ['Breakfast', 'Lunch', 'Dinner'];
+  const slotTimes = { breakfast: '07:00 Breakfast', lunch: '13:00 Lunch', dinner: '19:00 Dinner' };
 
   const mealPlan = mealPlanStore.mealPlan || SEED_MEAL_PLAN;
   const workoutPlan = mealPlanStore.workoutPlan || SEED_WORKOUT_PLAN;
 
-  // Calculate average macros
+  // Calculate aggregate macros
   let totalCalories = 0;
   let totalProtein = 0;
   let totalCarbs = 0;
-  let mealCount = 0;
+  let totalFats = 0;
 
   days.forEach(day => {
     slots.forEach(slot => {
       const meal = mealPlan[day]?.[slot];
       if (meal && meal.macros) {
-        totalCalories += meal.macros.calories;
-        totalProtein += meal.macros.protein;
-        totalCarbs += meal.macros.carbs;
-        mealCount++;
+        totalCalories += meal.macros.calories || 0;
+        totalProtein  += meal.macros.protein  || 0;
+        totalCarbs    += meal.macros.carbs    || 0;
+        totalFats     += meal.macros.fat || meal.macros.fats || 0;
       }
     });
   });
 
   const avgCalories = Math.round(totalCalories / 7);
-  const avgProtein = Math.round(totalProtein / 7);
-  const avgCarbs = Math.round(totalCarbs / 7);
+  const avgProtein  = Math.round(totalProtein  / 7);
+  const avgCarbs    = Math.round(totalCarbs    / 7);
+  const avgFats     = Math.round(totalFats     / 7);
 
+  // Macro bar proportions
+  const macroTotal = avgProtein + avgCarbs + avgFats || 1;
+  const proteinPct = Math.round((avgProtein / macroTotal) * 100);
+  const carbsPct   = Math.round((avgCarbs   / macroTotal) * 100);
+  const fatsPct    = 100 - proteinPct - carbsPct;
+
+  // Kcal estimate for a workout based on focus
+  const kcalEstimate = (workout) => {
+    if (workout.isRest ?? workout.rest) return 90;
+    const focusMap = {
+      push: 510, pull: 480, legs: 580, athletic: 720,
+      cardio: 640, rest: 90, core: 350, hypertrophy: 420
+    };
+    return focusMap[(workout.focus || '').toLowerCase()] ?? 450;
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="results-container">
-      <div className="botanical-background"></div>
+    <div className="bg-surface min-h-screen font-body text-on-surface antialiased">
 
-      {/* Left Column: Meal Plan */}
-      <div className="results-column left-column">
-        <h1 className="results-heading">Your 7-Day Meal Plan 🌿</h1>
+      {/* Fixed glassmorphism nav */}
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-[0_20px_40px_rgba(0,0,0,0.06)] flex justify-between items-center px-8 py-6">
+        <div className="text-2xl font-black tracking-tighter uppercase text-black">FridgeToFit</div>
+        <div className="hidden md:flex gap-8 items-center">
+          <a className="text-black border-b-2 border-black pb-1 font-bold cursor-default">Plan</a>
+          <a
+            className="text-zinc-400 hover:text-black transition-colors cursor-pointer"
+            onClick={() => navigate('/grocery')}
+          >
+            Groceries
+          </a>
+        </div>
+        <button className="bg-primary text-on-primary-container px-5 py-2 text-xs font-bold uppercase tracking-widest active:scale-[0.98] duration-200">
+          Get Started
+        </button>
+      </nav>
 
-        {/* Meal Calendar Grid */}
-        <div className="meal-calendar">
-          {/* Day Headers */}
-          <div className="calendar-header">
-            <div className="slot-label-header"></div>
-            {dayLabels.map((label, index) => (
-              <div key={index} className="day-header">{label}</div>
-            ))}
+      {/* Main content */}
+      <main className="pt-28 pb-12 px-8 max-w-[1600px] mx-auto min-h-screen">
+
+        {/* Clinical Summary Header */}
+        <header className="mb-12 max-w-3xl">
+          <div className="text-[10px] font-bold tracking-[0.2em] text-primary uppercase mb-4 opacity-60">
+            System Assessment // Protocol 042
           </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-black mb-6 leading-none">
+            Your Clinical Optimization Path.
+          </h1>
+          <p className="text-lg text-on-surface-variant font-light leading-relaxed border-l-2 border-primary pl-6 py-1">
+            Based on your current metabolic profile and inventory, we have synthesized a 7-day high-precision
+            physiological load. Nutrient density is prioritized to sustain a caloric deficit while maximizing
+            muscular recovery through targeted hypertrophy prompts. Adherence to this specific sequence ensures
+            optimal hormonal balance and cognitive clarity.
+          </p>
+        </header>
 
-          {/* Meal Rows */}
-          {slots.map((slot, slotIndex) => (
-            <div key={slot} className="meal-row">
-              <div className="slot-label">{slotLabels[slotIndex]}</div>
-              {days.map((day) => {
-                const meal = mealPlan[day]?.[slot];
-                const isLeftover = mealPlanStore.leftovers[`${day}_${slot}`] ?? false;
-                
-                if (!meal) return <div key={day} className="meal-cell"></div>;
-                
-                return (
-                  <div key={day} className="meal-cell">
-                    <MealCard
-                      name={meal.name || meal.recipe_name || '—'}
-                      cuisine_tag={meal.cuisine_tag || '🍽️'}
-                      macros={meal.macros || { calories: '—', protein: '—', carbs: '—' }}
-                      prep_time_min={meal.prep_time_min ?? '—'}
-                      is_leftover={isLeftover}
-                      onSwap={() => handleSwap(day, slot)}
-                      onToggleLeftover={() => handleToggleLeftover(day, slot)}
-                    />
+        {/* Main Dashboard Grid */}
+        <div className="flex flex-col lg:flex-row gap-12">
+
+          {/* LEFT: 7-Day Nutritional Grid */}
+          <section className="lg:w-3/5">
+
+            {/* Section header */}
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest">7-Day Nutritional Grid</h2>
+                <div className="h-1 w-12 bg-primary mt-2" />
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400">
+                Inventory Sync: 98.4%
+              </div>
+            </div>
+
+            {/* 7-column grid */}
+            <div className="grid grid-cols-7 gap-px bg-zinc-200 overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.04)]">
+
+              {/* Day labels row */}
+              {dayLabels.map((label) => (
+                <div
+                  key={label}
+                  className="bg-surface-container-low py-4 text-center border-b border-zinc-200"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+                </div>
+              ))}
+
+              {/* Meal slot rows */}
+              {slots.map((slot) => (
+                <>
+                  {/* Row label spanning all 7 columns */}
+                  <div
+                    key={`label-${slot}`}
+                    className="col-span-7 bg-zinc-100 px-4 py-2 flex items-center justify-between border-t border-zinc-200"
+                  >
+                    <span className="text-[9px] font-bold tracking-widest uppercase opacity-40">
+                      {slotTimes[slot]}
+                    </span>
                   </div>
-                );
-              })}
+
+                  {/* 7 meal cells */}
+                  {days.map((day) => {
+                    const meal = mealPlan[day]?.[slot];
+                    const isLeftover = mealPlanStore.leftovers?.[`${day}_${slot}`] ?? false;
+                    const mealName = meal
+                      ? (meal.name || meal.recipe_name || '—').toUpperCase()
+                      : '—';
+                    const macros = meal?.macros || {};
+
+                    if (isLeftover) {
+                      return (
+                        <div
+                          key={`${day}-${slot}`}
+                          className="bg-surface-container-low p-3 aspect-[4/5] flex flex-col justify-between cursor-pointer"
+                          onClick={() => handleToggleLeftover(day, slot)}
+                        >
+                          <div className="text-[9px] font-black">LEFTOVERS</div>
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '14px', fontVariationSettings: "'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24" }}
+                          >
+                            cached
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={`${day}-${slot}`}
+                        className="bg-white p-3 aspect-[4/5] flex flex-col justify-between group cursor-pointer hover:bg-zinc-50 transition-colors"
+                      >
+                        <div>
+                          <div className="text-[9px] font-black mb-1 leading-tight">{mealName}</div>
+                          {meal?.prep_time_min != null && (
+                            <div className="text-[8px] text-zinc-400">{meal.prep_time_min} MIN PREP</div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {macros.protein != null && (
+                            <span className="bg-zinc-100 px-1.5 py-0.5 text-[7px] font-bold">
+                              P: {macros.protein}G
+                            </span>
+                          )}
+                          {macros.carbs != null && (
+                            <span className="bg-zinc-100 px-1.5 py-0.5 text-[7px] font-bold">
+                              C: {macros.carbs}G
+                            </span>
+                          )}
+                          {(macros.fat != null || macros.fats != null) && (
+                            <span className="bg-zinc-100 px-1.5 py-0.5 text-[7px] font-bold">
+                              F: {macros.fat ?? macros.fats}G
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Hover controls */}
+                        <div className="flex justify-between items-center pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span
+                            className="material-symbols-outlined cursor-pointer"
+                            style={{ fontSize: '14px', fontVariationSettings: "'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24" }}
+                            onClick={(e) => { e.stopPropagation(); handleSwap(day, slot); }}
+                            title="Swap meal"
+                          >
+                            swap_horiz
+                          </span>
+                          <div
+                            className="w-2 h-2 rounded-full border border-black cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); handleToggleLeftover(day, slot); }}
+                            title="Mark as leftover"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              ))}
             </div>
-          ))}
+
+            {/* Macro Summary Bar */}
+            <div className="mt-8 bg-surface-container-lowest p-6 shadow-[0_20px_40px_rgba(0,0,0,0.06)]">
+              <div className="flex justify-between items-baseline mb-4">
+                <span className="text-[10px] font-black uppercase tracking-[0.1em]">
+                  Weekly Aggregate Macros
+                </span>
+                <span className="text-xl font-black tracking-tight">
+                  {avgCalories.toLocaleString()}{' '}
+                  <span className="text-[10px] font-normal uppercase">AVG Kcal/Day</span>
+                </span>
+              </div>
+
+              {/* Segmented bar */}
+              <div className="flex h-3 w-full bg-zinc-100 overflow-hidden">
+                <div className="h-full bg-primary"    style={{ width: `${proteinPct}%` }} />
+                <div className="h-full bg-secondary"  style={{ width: `${carbsPct}%` }} />
+                <div className="h-full bg-tertiary"   style={{ width: `${fatsPct}%` }} />
+              </div>
+
+              {/* Legend */}
+              <div className="flex gap-8 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">
+                    Protein {avgProtein}g
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-secondary" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">
+                    Carbs {avgCarbs}g
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-tertiary" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">
+                    Fats {avgFats}g
+                  </span>
+                </div>
+              </div>
+
+              {/* Grocery CTA */}
+              <button
+                className="mt-6 bg-primary text-on-primary-container px-5 py-2 text-xs font-bold uppercase tracking-widest active:scale-[0.98] duration-200"
+                onClick={() => navigate('/grocery')}
+              >
+                View Grocery List
+              </button>
+            </div>
+          </section>
+
+          {/* RIGHT: Physiological Load (Workout) */}
+          <section className="lg:w-2/5">
+
+            {/* Section header */}
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest">Physiological Load</h2>
+                <div className="h-1 w-12 bg-primary mt-2" />
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400">
+                Week 01 // Cycle A
+              </div>
+            </div>
+
+            {workoutError ? (
+              <div className="bg-surface-container-lowest p-6 shadow-[0_20px_40px_rgba(0,0,0,0.06)]">
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-primary opacity-60 mb-3">
+                  Load Error // Workout Unavailable
+                </p>
+                <p className="text-sm text-on-surface-variant font-light mb-4">
+                  We could not generate your workout plan right now.
+                </p>
+                <button
+                  className="bg-primary text-on-primary-container px-5 py-2 text-xs font-bold uppercase tracking-widest active:scale-[0.98] duration-200"
+                  onClick={async () => {
+                    try {
+                      const userId = useUserStore.getState().userId;
+                      const planId = useMealPlanStore.getState().mealPlanId;
+                      const store = useUserStore.getState();
+                      const data = await generateWorkoutPlan({
+                        user_id: userId,
+                        meal_plan_id: planId,
+                        equipment: store.equipment,
+                      });
+                      mealPlanStore.setWorkoutPlan(data.plan_json || data.plan);
+                      setWorkoutError(false);
+                    } catch (err) {
+                      console.error('Retry failed:', err);
+                    }
+                  }}
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {workoutPlan.map((workout, index) => {
+                  const isRest = workout.isRest ?? workout.rest ?? false;
+                  const exerciseNames = (workout.exercises || [])
+                    .slice(0, 3)
+                    .map(e => e.name)
+                    .join(', ');
+                  const sessionLabel = isRest
+                    ? `${workout.day} // Full Rest`
+                    : `${workout.day} // Session ${String(index + 1).padStart(2, '0')}`;
+                  const focusLabel = isRest ? 'Rest & Recovery' : workout.focus;
+                  const kcal = kcalEstimate(workout);
+
+                  return (
+                    <div
+                      key={index}
+                      className={[
+                        'p-6 flex justify-between items-center group transition-transform',
+                        isRest
+                          ? 'bg-surface-container-low opacity-60'
+                          : 'bg-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:translate-x-1 border-l-4 border-transparent hover:border-black'
+                      ].join(' ')}
+                    >
+                      <div>
+                        <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">
+                          {sessionLabel}
+                        </div>
+                        <h3 className="text-xl font-black tracking-tighter uppercase mb-2">
+                          {focusLabel}
+                        </h3>
+                        {exerciseNames && (
+                          <p className="text-[11px] text-zinc-500 uppercase leading-none">
+                            {exerciseNames}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0 ml-4">
+                        <div className="text-2xl font-black tabular-nums tracking-tighter">{kcal}</div>
+                        <div className="text-[9px] font-bold uppercase text-zinc-400">Kcal Est.</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
+      </main>
 
-        {/* Macro Overview */}
-        <div className="macro-overview">
-          <h3 className="macro-heading">Weekly Nutrition Overview</h3>
-          
-          <div className="macro-bar-container">
-            <div className="macro-bar-row">
-              <span className="macro-label">Avg Calories</span>
-              <span className="macro-value">{avgCalories} kcal/day</span>
-            </div>
-            <div className="macro-bar">
-              <div className="macro-fill" style={{ width: '75%' }}></div>
+      {/* Footer */}
+      <footer className="w-full py-12 px-8 bg-zinc-50 border-t border-zinc-200/20">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-8 w-full max-w-screen-2xl mx-auto">
+          <div>
+            <div className="font-black text-black mb-2 uppercase tracking-tighter">FRIDGETOFIT.</div>
+            <div className="text-[10px] uppercase tracking-[0.05em] text-zinc-500">
+              2026 FRIDGETOFIT. CLINICAL PRECISION.
             </div>
           </div>
-
-          <div className="macro-bar-container">
-            <div className="macro-bar-row">
-              <span className="macro-label">Avg Protein</span>
-              <span className="macro-value">{avgProtein}g/day</span>
-            </div>
-            <div className="macro-bar">
-              <div className="macro-fill" style={{ width: '65%' }}></div>
-            </div>
+          <div className="flex flex-wrap gap-8">
+            <span className="text-[10px] uppercase tracking-[0.05em] text-zinc-500 hover:text-black underline transition-all cursor-pointer">Privacy</span>
+            <span className="text-[10px] uppercase tracking-[0.05em] text-zinc-500 hover:text-black underline transition-all cursor-pointer">Terms</span>
+            <span className="text-[10px] uppercase tracking-[0.05em] text-zinc-500 hover:text-black underline transition-all cursor-pointer">Clinical Standards</span>
+            <span className="text-[10px] uppercase tracking-[0.05em] text-zinc-500 hover:text-black underline transition-all cursor-pointer">Support</span>
           </div>
-
-          <div className="macro-bar-container">
-            <div className="macro-bar-row">
-              <span className="macro-label">Avg Carbs</span>
-              <span className="macro-value">{avgCarbs}g/day</span>
-            </div>
-            <div className="macro-bar">
-              <div className="macro-fill" style={{ width: '70%' }}></div>
-            </div>
-          </div>
-
-          <button className="grocery-link" onClick={() => navigate('/grocery')}>
-            View Grocery List →
-          </button>
         </div>
-      </div>
+      </footer>
 
-      {/* Divider */}
-      <div className="column-divider"></div>
-
-      {/* Right Column: Workout Plan */}
-      <div className="results-column right-column">
-        <h1 className="results-heading">Your 7-Day Workout Split 💪</h1>
-
-        {workoutError ? (
-          <div className="workout-error-card">
-            <h3 className="workout-error-title">💪 Workout plan unavailable</h3>
-            <p className="workout-error-text">We couldn't generate your workout plan right now.</p>
-            <button 
-              className="workout-retry-button"
-              onClick={async () => {
-                try {
-                  const userId = useUserStore.getState().userId;
-                  const planId = useMealPlanStore.getState().mealPlanId;
-                  const store = useUserStore.getState();
-                  const data = await generateWorkoutPlan({
-                    user_id: userId,
-                    meal_plan_id: planId,
-                    equipment: store.equipment,
-                  });
-                  mealPlanStore.setWorkoutPlan(data.plan_json || data.plan);
-                  setWorkoutError(false);
-                } catch (err) {
-                  console.error('Retry failed:', err);
-                }
-              }}
-            >
-              Try again
-            </button>
-          </div>
-        ) : (
-          <div className="workout-list">
-            {workoutPlan.map((workout, index) => (
-              <WorkoutCard
-                key={index}
-                day={workout.day}
-                focus={workout.focus}
-                exercises={workout.exercises || []}
-                isRest={workout.isRest ?? workout.rest ?? false}
-              />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

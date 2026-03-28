@@ -1,12 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
-
-:root {
-  --green-deep: #2D6A4F;
-  --green-mid: #52B788;
-  --cream: #FEFAE0;
-  --warm: #D4A373;
-  --brown: #A0522D;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 * {
   margin: 0;
@@ -15,29 +9,49 @@
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
-  background: #FEFAE0;
-  color: #333;
-  line-height: 1.6;
+  font-family: 'Inter', sans-serif;
+  background: #f9f9f9;
+  color: #1a1c1c;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Playfair Display', serif;
-  font-weight: 600;
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  font-size: 20px;
+  vertical-align: middle;
+  user-select: none;
 }
 
-button {
-  font-family: 'DM Sans', sans-serif;
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #000000;
   cursor: pointer;
-  border: none;
-  outline: none;
+  border-radius: 0;
 }
 
-input, textarea, select {
-  font-family: 'DM Sans', sans-serif;
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #000000;
+  cursor: pointer;
+  border-radius: 0;
 }
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1px;
+  background: rgba(198, 198, 198, 0.4);
+  outline: none;
+  cursor: pointer;
+}
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 #root {
   min-height: 100vh;
