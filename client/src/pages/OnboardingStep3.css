@@ -125,6 +125,33 @@
   border-color: var(--green-deep);
 }
 
+/* Button Spinner */
+.button-spinner {
+  animation: spin 1.2s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error Banner */
+.error-banner {
+  margin-bottom: 16px;
+  background: rgba(212, 163, 115, 0.15);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--brown);
+  text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .cuisine-grid {

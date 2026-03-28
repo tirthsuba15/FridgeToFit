@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useUserStore from '../stores/userStore';
+import { extractIngredients } from '../api/endpoints';
 import './OnboardingStep1.css';
 
 export default function OnboardingStep1() {
@@ -12,7 +13,9 @@ export default function OnboardingStep1() {
   const [inputValue, setInputValue] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
 
   const handleAddIngredient = () => {
     const trimmed = inputValue.trim();
@@ -53,13 +56,27 @@ export default function OnboardingStep1() {
   const handleFileSelect = (file) => {
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
-    setAnalyzing(true);
+    setSelectedFile(file);
+    setPhotoError(null);
+    setAnalyzing(false);
+  };
 
-    // Simulate analysis - in Phase 5 this will be real OCR/vision
-    setTimeout(() => {
-      setTypeIngredients(['eggs', 'milk', 'spinach', 'cheddar cheese', 'tomatoes']);
+  const handleAnalyzeFridge = async () => {
+    if (!selectedFile) return;
+
+    setAnalyzing(true);
+    setPhotoError(null);
+
+    try {
+      const data = await extractIngredients(selectedFile);
+      setTypeIngredients(data.ingredients || []);
+      setActiveTab('type');
+    } catch (error) {
+      console.error('Failed to analyze fridge photo:', error);
+      setPhotoError("Couldn't read your fridge photo. Try typing ingredients instead.");
+    } finally {
       setAnalyzing(false);
-    }, 2000);
+    }
   };
 
   const handleFileInputChange = (e) => {
@@ -156,6 +173,19 @@ export default function OnboardingStep1() {
                 onChange={handleFileInputChange}
                 style={{ display: 'none' }}
               />
+              {previewUrl && !analyzing && (
+                <button 
+                  className="analyze-button"
+                  onClick={handleAnalyzeFridge}
+                >
+                  Analyze Fridge →
+                </button>
+              )}
+              {photoError && (
+                <div className="error-banner">
+                  {photoError}
+                </div>
+              )}
             </div>
           ) : (
             <div className="type-tab">

@@ -272,6 +272,39 @@
   cursor: not-allowed;
 }
 
+/* Analyze Button */
+.analyze-button {
+  width: 100%;
+  margin-top: 16px;
+  background: var(--green-deep);
+  color: var(--cream);
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.analyze-button:hover {
+  opacity: 0.88;
+  transform: scale(1.02);
+}
+
+/* Error Banner */
+.error-banner {
+  margin-top: 16px;
+  background: rgba(212, 163, 115, 0.15);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--brown);
+  text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .onboarding-card {

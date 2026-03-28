@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useUserStore from '../stores/userStore';
+import { createUser } from '../api/endpoints';
 import './OnboardingStep3.css';
 
 export default function OnboardingStep3() {
@@ -12,6 +13,7 @@ export default function OnboardingStep3() {
   const [budgetPreset, setBudgetPreset] = useState(null);
   const [budgetCustom, setBudgetCustom] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const cuisines = [
     { id: 'mexican', emoji: '🇲🇽', label: 'Mexican' },
@@ -85,9 +87,44 @@ export default function OnboardingStep3() {
     }
   };
 
-  const handleGeneratePlan = () => {
+  const handleGeneratePlan = async () => {
     setIsLoading(true);
-    navigate('/results');
+    setError(null);
+
+    // Save remaining store values
+    userStore.setCuisines(selectedCuisines);
+    userStore.setDietary(selectedDietary);
+    if (budgetPreset) {
+      userStore.setBudget(budgetPreset);
+    } else if (budgetCustom) {
+      userStore.setBudget(`${budgetCustom}`);
+    }
+
+    // Build profile object
+    const profile = {
+      ingredients: userStore.ingredients,
+      height: Number(userStore.height),
+      weight: Number(userStore.weight),
+      age: Number(userStore.age),
+      sex: userStore.sex,
+      activity_level: userStore.activityLevel,
+      goal: userStore.goal,
+      dietary: selectedDietary,
+      cuisines: selectedCuisines,
+      budget: budgetPreset || (budgetCustom ? `${budgetCustom}` : ''),
+      equipment: userStore.equipment
+    };
+
+    try {
+      const data = await createUser(profile);
+      userStore.setSessionToken(data.session_token);
+      userStore.setUserId(data.user_id);
+      navigate('/results');
+    } catch (err) {
+      console.error('Failed to create user profile:', err);
+      setError("Couldn't create your profile. Check your connection and try again.");
+      setIsLoading(false);
+    }
   };
 
   const canProceed = selectedCuisines.length > 0;
@@ -164,13 +201,39 @@ export default function OnboardingStep3() {
           </div>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+          <div className="error-banner">
+            {error}
+          </div>
+        )}
+
         {/* Bottom Bar */}
         <button
           className="next-button"
           onClick={handleGeneratePlan}
-          disabled={!canProceed}
+          disabled={!canProceed || isLoading}
         >
-          Generate My Plan →
+          {isLoading ? (
+            <>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 40 40"
+                xmlns="http://www.w3.org/2000/svg"
+                className="button-spinner"
+                style={{ display: 'inline-block', marginRight: '8px' }}
+              >
+                <path
+                  d="M20 5 Q30 15 20 35 Q10 15 20 5Z"
+                  fill="var(--cream)"
+                />
+              </svg>
+              Creating your plan...
+            </>
+          ) : (
+            'Generate My Plan →'
+          )}
         </button>
       </div>
     </div>
