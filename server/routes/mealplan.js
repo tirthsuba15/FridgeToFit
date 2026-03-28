@@ -151,10 +151,11 @@ router.post('/swap', async (req, res) => {
     const plan = JSON.parse(planRow.plan_json);
 
     // Support both plan shapes: array days or object days
+    // Normalize day comparison (frontend sends 'monday', AI may store 'Monday')
     const dayObj = plan.days
       ? (Array.isArray(plan.days)
-          ? plan.days.find(d => d.day === day)
-          : plan.days[day])
+          ? plan.days.find(d => (d.day || '').toLowerCase() === day.toLowerCase())
+          : (plan.days[day] || plan.days[day.toLowerCase()] || plan.days[day.charAt(0).toUpperCase() + day.slice(1)]))
       : null;
 
     const currentMeal = dayObj
@@ -186,7 +187,7 @@ router.post('/swap', async (req, res) => {
       swapResult = await swapMeal({
         current_recipe: {
           recipe_id: currentMeal.recipe_id,
-          recipe_name: currentMeal.recipe_name || currentMeal.name,
+          recipe_name: currentMeal.recipe_name || currentMeal.name || 'Unknown',
           prep_time_min: currentMeal.prep_time_min,
         },
         slot,

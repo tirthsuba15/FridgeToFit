@@ -9,7 +9,7 @@ export default function Grocery() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const groceryStore = useGroceryStore();
-  const planId = useMealPlanStore.getState().mealPlanId;
+  const planId = useMealPlanStore(state => state.mealPlanId);
 
   useEffect(() => {
     if (!planId) {

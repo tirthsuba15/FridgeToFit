@@ -15,7 +15,17 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
 
     const user = req.user;
     const planJson = JSON.parse(plan.plan_json);
-    const days = planJson.days || {};
+    // Normalize array-style days [{day, meals:[{slot,...}]}] → {mon:{breakfast:{...}}}
+    const rawDays = planJson.days || {};
+    let days = rawDays;
+    if (Array.isArray(rawDays)) {
+      days = {};
+      for (const d of rawDays) {
+        const key = (d.day || '').toLowerCase().slice(0, 3);
+        days[key] = {};
+        for (const m of (d.meals || [])) { days[key][m.slot] = m; }
+      }
+    }
 
     const tdee = calculateTDEE({
       weight_kg: user.weight_kg,
@@ -36,10 +46,10 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
         if (meal?.is_leftover) continue;
 
         const macros = meal?.macros || {};
-        calories  += macros.calories  || 0;
-        protein_g += macros.protein_g || 0;
-        carbs_g   += macros.carbs_g   || 0;
-        fat_g     += macros.fat_g     || 0;
+        calories  += macros.calories  || macros.kcal || 0;
+        protein_g += macros.protein_g || macros.protein || 0;
+        carbs_g   += macros.carbs_g   || macros.carbs || 0;
+        fat_g     += macros.fat_g     || macros.fat || 0;
       }
 
       const diff = calories - targets.calories;

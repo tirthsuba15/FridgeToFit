@@ -148,8 +148,9 @@ export default function Results() {
 
   const handleToggleLeftover = async (day, slot) => {
     const planId = useMealPlanStore.getState().mealPlanId;
+    // Compute newValue BEFORE toggling so the server gets the correct intended value
+    const newValue = !(mealPlanStore.leftovers[`${day}_${slot}`] ?? false);
     mealPlanStore.toggleLeftover(day, slot);
-    const newValue = !mealPlanStore.leftovers[`${day}_${slot}`];
     try {
       await patchLeftovers(planId, { day, slot, is_leftover: newValue });
       const groceryData = await fetchGroceryList(planId);
