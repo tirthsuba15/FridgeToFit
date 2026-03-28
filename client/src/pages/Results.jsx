@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useMealPlanStore from '../stores/mealPlanStore';
 import useUserStore from '../stores/userStore';
 import useGroceryStore from '../stores/groceryStore';
-import { generateMealPlan, generateWorkoutPlan, swapMeal, patchLeftovers, fetchGroceryList } from '../api/endpoints';
+import { generateMealPlan, generateWorkoutPlan, swapMeal, patchLeftovers, fetchGroceryList, saveIngredientNames } from '../api/endpoints';
 import MealCard from '../components/MealCard';
 import WorkoutCard from '../components/WorkoutCard';
 import './Results.css';
@@ -72,9 +72,17 @@ export default function Results() {
       const userId = useUserStore.getState().userId;
       const store = useUserStore.getState();
 
-      const ingredientIds = (store.ingredients || [])
+      // Separate typed strings vs photo objects (which already have DB IDs)
+      const allIngredients = store.ingredients || [];
+      const ingredientStrings = allIngredients.filter(i => typeof i === 'string');
+      const ingredientIds = allIngredients
         .map(i => (typeof i === 'object' ? i.id : null))
         .filter(Boolean);
+
+      // If user typed ingredients (not from photo), save them to DB so matchRecipes can use them
+      if (ingredientStrings.length > 0) {
+        try { await saveIngredientNames(ingredientStrings); } catch {}
+      }
 
       try {
         // Meal plan first — workout needs the returned meal_plan_id

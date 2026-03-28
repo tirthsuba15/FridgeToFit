@@ -77,3 +77,12 @@ export async function fetchGroceryList(planId) {
   const res = await client.get(`/api/grocery/${planId}`);
   return res.data; // expects { items: GroceryItem[] }
 }
+
+/**
+ * Save ingredient names to DB (for typed ingredients that bypass photo extract)
+ * @param {string[]} names
+ */
+export async function saveIngredientNames(names) {
+  const res = await client.post('/api/ingredients/extract', { ingredients: names });
+  return res.data;
+}
