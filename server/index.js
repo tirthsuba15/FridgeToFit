@@ -29,8 +29,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Catch-all for React Router
-app.get('*', (req, res) => {
+// Catch-all for React Router (Express 5 requires named wildcard)
+app.get('/{*path}', (req, res) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   }
