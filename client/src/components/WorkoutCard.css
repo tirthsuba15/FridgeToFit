@@ -1,0 +1,112 @@
+.workout-card {
+  background: white;
+  border-radius: 16px;
+  border: 1.5px solid var(--green-mid);
+  box-shadow: 0 2px 12px rgba(45, 106, 79, 0.1);
+  padding: 16px;
+  transition: all 200ms ease;
+}
+
+.workout-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(45, 106, 79, 0.15);
+}
+
+.workout-card.rest-day {
+  background: rgba(254, 250, 224, 0.7);
+  border: 1.5px dashed var(--green-mid);
+}
+
+.workout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.workout-day {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--green-deep);
+}
+
+.focus-pill {
+  background: var(--green-mid);
+  color: white;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* Rest Day */
+.rest-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.rest-icon {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: var(--green-mid);
+  margin-bottom: 6px;
+}
+
+.rest-subtext {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: #999;
+}
+
+/* Exercise List */
+.exercise-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.exercise-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.exercise-name {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--green-deep);
+}
+
+.exercise-sets {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--green-mid);
+}
+
+.exercise-notes {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+
+.exercise-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 4px 0;
+}
+
+.more-exercises {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--green-mid);
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.more-exercises:hover {
+  text-decoration: underline;
+}

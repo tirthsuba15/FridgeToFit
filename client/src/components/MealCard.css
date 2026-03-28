@@ -1,0 +1,113 @@
+.meal-card {
+  background: white;
+  border-radius: 16px;
+  border: 1.5px solid var(--green-mid);
+  box-shadow: 0 2px 12px rgba(45, 106, 79, 0.1);
+  padding: 14px;
+  position: relative;
+  transition: all 200ms ease;
+}
+
+.meal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(45, 106, 79, 0.15);
+}
+
+.meal-card.leftover {
+  background: rgba(45, 106, 79, 0.08);
+}
+
+.meal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cuisine-flag {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.meal-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--green-deep);
+  margin: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.meal-name.strikethrough {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.leftover-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--green-mid);
+  margin-bottom: 8px;
+}
+
+.macro-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.macro-badge {
+  background: var(--warm);
+  color: white;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.prep-time-badge {
+  background: var(--cream);
+  color: var(--brown);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.meal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 200ms ease;
+  opacity: 0.7;
+}
+
+.action-btn:hover {
+  opacity: 1;
+  background: rgba(82, 183, 136, 0.1);
+}
+
+.leftover-btn.active {
+  opacity: 1;
+  background: rgba(45, 106, 79, 0.15);
+}
