@@ -19,3 +19,6 @@
 
 <!-- example: -->
 <!-- 10:14am P2 Phase 1 ✅ — SQLite schema + migrations + SCHEMA.md pushed -->
+
+## P2 — Tmoney (Backend)
+- [x] Phase 1 — schema + DB init + SCHEMA.md
