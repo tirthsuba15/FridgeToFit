@@ -1,0 +1,10 @@
+
+> client@0.0.0 dev
+> vite
+
+
+  VITE v8.0.3  ready in 492 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+9:47:36 AM [vite] (client) hmr update /src/pages/OnboardingStep1.jsx

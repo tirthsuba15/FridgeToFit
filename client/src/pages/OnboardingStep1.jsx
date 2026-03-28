@@ -7,7 +7,7 @@ export default function OnboardingStep1() {
   const navigate = useNavigate();
   const setIngredients = useUserStore((state) => state.setIngredients);
 
-  const [activeTab, setActiveTab] = useState('type');
+  const [activeTab, setActiveTab] = useState('photo');
   const [typeIngredients, setTypeIngredients] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [dragOver, setDragOver] = useState(false);
