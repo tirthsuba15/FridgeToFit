@@ -32,22 +32,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/api/debug-paths', (req, res) => {
-  const fs = require('fs');
-  let appContents = [], clientContents = [];
-  try { appContents = fs.readdirSync('/app'); } catch (_) {}
-  try { clientContents = fs.readdirSync('/app/client'); } catch (_) {}
-  res.json({
-    __dirname,
-    cwd: process.cwd(),
-    DIST_PATH,
-    distExists: fs.existsSync(DIST_PATH),
-    indexExists: fs.existsSync(INDEX_PATH),
-    appContents,
-    clientContents,
-  });
-});
-
 // Catch-all for React Router — serve index.html for all non-API routes
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next();
