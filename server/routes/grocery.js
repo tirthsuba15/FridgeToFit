@@ -32,25 +32,49 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
       }
     }
 
+    console.log('Grocery debug — sample meal:', JSON.stringify(Object.values(days)[0]));
+
     // Tally needed (non-leftover) and available (leftover) quantities per ingredient
     const needed = {};   // name → quantity_g needed to buy
     const available = {}; // name → quantity_g already cooked/available from leftovers
 
-    const parseIngredients = (meal) => {
-      const raw = meal?.ingredient_list || meal?.ingredients || [];
-      return Array.isArray(raw) ? raw
-        : (typeof raw === 'string' ? JSON.parse(raw) : []);
-    };
+    const ownedIngredients = db.prepare('SELECT name FROM ingredients').all()
+      .map(i => i.name.toLowerCase().trim());
 
     for (const [day, slots] of Object.entries(days)) {
       for (const [slot, meal] of Object.entries(slots)) {
         const key = `${day}:${slot}`;
+        if (leftoverKeys.has(key)) continue;
+
+        // Handle multiple possible field names from Gordon's AI output
+        let ingredients =
+          meal?.ingredients ||
+          meal?.ingredient_list ||
+          meal?.ingredientList ||
+          meal?.recipe?.ingredients ||
+          [];
+
+        // If it's a string, parse it
+        if (typeof ingredients === 'string') {
+          try { ingredients = JSON.parse(ingredients); } catch { ingredients = []; }
+        }
+
+        // If ingredients is array of objects with name field, extract names
+        if (Array.isArray(ingredients) && ingredients.length > 0 && typeof ingredients[0] === 'object') {
+          ingredients = ingredients.map(i => i.name || i.ingredient || String(i));
+        }
+
         const isLeftover = leftoverKeys.has(key);
         const target = isLeftover ? available : needed;
-        for (const ing of parseIngredients(meal)) {
-          const name = (typeof ing === 'string' ? ing : ing.name || '').toLowerCase().trim();
-          const qty = typeof ing === 'object' ? (ing.quantity_g || 100) : 100;
-          if (!name) continue;
+
+        for (const ing of ingredients) {
+          const name = (typeof ing === 'string' ? ing : String(ing)).toLowerCase().trim();
+          const qty = typeof ing === 'object' ? (ing.quantity_g || ing.quantity || 100) : 100;
+          if (!name || name.length < 2) continue;
+
+          // Skip if owned
+          if (ownedIngredients.some(owned => name.includes(owned) || owned.includes(name))) continue;
+
           target[name] = (target[name] || 0) + qty;
         }
       }

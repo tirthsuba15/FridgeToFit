@@ -6,6 +6,24 @@ const { matchRecipes } = require('../utils/recipeMatcher');
 const { calculateTDEE, getMacroTargets } = require('../utils/tdee');
 const { generateMealPlan, swapMeal, generateSummary } = require('../ai/prompt');
 
+function assignCuisinesForWeek(cuisine_prefs) {
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
+  const slots = ['breakfast','lunch','dinner','snack'];
+  const assignment = {};
+
+  if (!cuisine_prefs || cuisine_prefs.length === 0) return assignment;
+
+  // Shuffle cuisines across days — no same cuisine all day
+  days.forEach(day => {
+    assignment[day] = {};
+    const shuffled = [...cuisine_prefs].sort(() => Math.random() - 0.5);
+    slots.forEach((slot, i) => {
+      assignment[day][slot] = shuffled[i % shuffled.length];
+    });
+  });
+  return assignment;
+}
+
 // POST /api/mealplan/generate
 router.post('/generate', async (req, res) => {
   try {
@@ -59,6 +77,7 @@ router.post('/generate', async (req, res) => {
     const macros = getMacroTargets(tdee, user.goal);
 
     // 6. Generate meal plan via AI
+    const cuisineAssignment = assignCuisinesForWeek(cuisine_prefs);
     let mealPlan;
     try {
       mealPlan = await generateMealPlan({
@@ -66,6 +85,7 @@ router.post('/generate', async (req, res) => {
         tdee,
         macros,
         cuisines: cuisine_prefs,
+        cuisine_assignment: cuisineAssignment,
         dietary: dietary_flags,
         budget: user.weekly_budget_usd,
         goal: user.goal,

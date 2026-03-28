@@ -39,7 +39,11 @@ function matchRecipes({ recipes, userIngredientNames, dietary_flags, cuisine_pre
     .map(r => ({ ...r, match_score: scoreRecipe(r, userIngredientNames) }))
     .filter(r => r.match_score >= threshold)
     .sort((a, b) => b.match_score - a.match_score)
-    .slice(0, 30);
+    .slice(0, 30)
+    .map(r => ({
+      ...r,
+      ingredient_list: JSON.parse(r.ingredient_list || '[]').slice(0, 6)
+    }));
 
   return scored;
 }
