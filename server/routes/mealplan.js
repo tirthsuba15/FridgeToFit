@@ -34,16 +34,19 @@ router.post('/generate', async (req, res) => {
         GROUP BY r.id
         LIMIT 30
       `).all(...ingredient_ids);
-    } else {
-      // Fallback: use recipeMatcher with all ingredients
+    }
+
+    // Fall back to recipeMatcher when JOIN returns nothing (recipe_ingredients unpopulated)
+    if (!recipes || recipes.length === 0) {
       const allRecipes = db.prepare('SELECT * FROM recipes').all();
       const userIngredients = db.prepare('SELECT name FROM ingredients').all();
+      const ingredientNames = userIngredients.map(i => i.name);
       recipes = matchRecipes({
         recipes: allRecipes,
-        userIngredientNames: userIngredients.map(i => i.name),
+        userIngredientNames: ingredientNames.length > 0 ? ingredientNames : [''],
         dietary_flags,
         cuisine_prefs,
-        threshold: 0.3,
+        threshold: ingredientNames.length > 0 ? 0.3 : 0,
       }).slice(0, 30);
     }
 
