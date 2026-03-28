@@ -7,10 +7,5 @@ cmds = [
   "cd client && npm install"
 ]
 
-[phases.build]
-cmds = [
-  "cd client && rm -rf node_modules/.cache && npm run build"
-]
-
 [start]
 cmd = "node server/index.js"
