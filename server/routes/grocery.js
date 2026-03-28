@@ -32,37 +32,37 @@ router.get('/:mealplan_id', requireUser, (req, res) => {
       }
     }
 
-    // Get user's owned ingredients
-    const ownedIngredients = db.prepare('SELECT name FROM ingredients').all()
-      .map(i => i.name.toLowerCase().trim());
+    // Tally needed (non-leftover) and available (leftover) quantities per ingredient
+    const needed = {};   // name → quantity_g needed to buy
+    const available = {}; // name → quantity_g already cooked/available from leftovers
 
-    // Flatten all ingredients from non-leftover meals
-    const ingredientTotals = {}; // name → { quantity_g, aisle }
+    const parseIngredients = (meal) => {
+      const raw = meal?.ingredient_list || meal?.ingredients || [];
+      return Array.isArray(raw) ? raw
+        : (typeof raw === 'string' ? JSON.parse(raw) : []);
+    };
 
     for (const [day, slots] of Object.entries(days)) {
       for (const [slot, meal] of Object.entries(slots)) {
         const key = `${day}:${slot}`;
-        if (leftoverKeys.has(key)) continue; // skip leftover meals
-
-        const ingredients = meal?.ingredient_list || meal?.ingredients || [];
-        const parsed = Array.isArray(ingredients) ? ingredients
-          : (typeof ingredients === 'string' ? JSON.parse(ingredients) : []);
-
-        for (const ing of parsed) {
+        const isLeftover = leftoverKeys.has(key);
+        const target = isLeftover ? available : needed;
+        for (const ing of parseIngredients(meal)) {
           const name = (typeof ing === 'string' ? ing : ing.name || '').toLowerCase().trim();
           const qty = typeof ing === 'object' ? (ing.quantity_g || 100) : 100;
           if (!name) continue;
-
-          // Subtract owned ingredients
-          if (ownedIngredients.some(owned => name.includes(owned) || owned.includes(name))) {
-            continue;
-          }
-
-          if (!ingredientTotals[name]) {
-            ingredientTotals[name] = { quantity_g: 0, aisle: getAisle(name) };
-          }
-          ingredientTotals[name].quantity_g += qty;
+          target[name] = (target[name] || 0) + qty;
         }
+      }
+    }
+
+    // Grocery = needed minus what's already available from leftover slots
+    const ingredientTotals = {};
+    for (const [name, qty] of Object.entries(needed)) {
+      const alreadyHave = available[name] || 0;
+      const toBuy = qty - alreadyHave;
+      if (toBuy > 0) {
+        ingredientTotals[name] = { quantity_g: toBuy, aisle: getAisle(name) };
       }
     }
 
