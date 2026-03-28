@@ -11,7 +11,7 @@ router.post('/users', (req, res) => {
     const {
       session_token, height_cm, weight_kg, age, sex,
       activity_level, goal, dietary_flags, cuisine_prefs,
-      equipment, weekly_budget_usd
+      equipment, weekly_budget_usd,
     } = req.body;
 
     if (!session_token) return res.status(400).json({ error: 'session_token required' });
@@ -28,10 +28,10 @@ router.post('/users', (req, res) => {
     `).run(
       id, session_token, height_cm, weight_kg, age, sex,
       activity_level, goal,
-      JSON.stringify(dietary_flags || []),
-      JSON.stringify(cuisine_prefs || []),
-      JSON.stringify(equipment || []),
-      weekly_budget_usd
+      typeof dietary_flags === 'string' ? dietary_flags : JSON.stringify(dietary_flags || []),
+      typeof cuisine_prefs === 'string' ? cuisine_prefs : JSON.stringify(cuisine_prefs || []),
+      typeof equipment === 'string' ? equipment : JSON.stringify(equipment || []),
+      weekly_budget_usd,
     );
 
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -48,13 +48,7 @@ router.get('/users/:id/tdee', requireUser, (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.id !== req.user.id) return res.status(401).json({ error: 'Unauthorized' });
 
-    const tdee = calculateTDEE({
-      weight_kg: user.weight_kg,
-      height_cm: user.height_cm,
-      age: user.age,
-      sex: user.sex,
-      activity_level: user.activity_level
-    });
+    const tdee = calculateTDEE(user);
     const targets = getMacroTargets(tdee, user.goal);
     return res.json({ tdee, targets });
   } catch (e) {
