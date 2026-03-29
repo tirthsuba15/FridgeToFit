@@ -153,7 +153,10 @@ export default function OnboardingStep3() {
     }
   };
 
-  const canProceed = selectedCuisines.length > 0;
+  const budgetNum = budgetPreset === 'low' ? 40 : budgetPreset === 'medium' ? 75 : budgetPreset === 'high' ? 120 : Number(budgetCustom) || 0;
+  const budgetValid = budgetPreset !== null || (budgetCustom !== '' && budgetNum >= 10);
+  const budgetErr = budgetCustom !== '' && budgetNum < 10 ? 'Minimum budget is $10/week' : null;
+  const canProceed = selectedCuisines.length > 0 && budgetValid;
   const selectedEquipment = userStore.equipment || [];
 
   return (
@@ -349,11 +352,14 @@ export default function OnboardingStep3() {
                 <input
                   type="text"
                   inputMode="numeric"
-                  className="w-full bg-surface-container-lowest border border-outline-variant/20 p-6 pt-8 text-xl font-black tracking-tighter focus:outline-none focus:ring-0 focus:border-primary uppercase placeholder:text-outline-variant"
+                  className={`w-full bg-surface-container-lowest border p-6 pt-8 text-xl font-black tracking-tighter focus:outline-none focus:ring-0 uppercase placeholder:text-outline-variant ${budgetErr ? 'border-red-400 focus:border-red-400' : 'border-outline-variant/20 focus:border-primary'}`}
                   placeholder="ENTER AMOUNT"
                   value={budgetCustom}
                   onChange={handleCustomBudgetChange}
                 />
+                {budgetErr && (
+                  <p className="text-[9px] text-red-500 font-bold uppercase tracking-wide mt-2">{budgetErr}</p>
+                )}
               </div>
             </div>
 

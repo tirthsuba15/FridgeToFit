@@ -131,7 +131,39 @@ export default function OnboardingStep2() {
     }
   };
 
+  const LIMITS = {
+    height: { min: 100, max: 250, label: 'Height must be 100–250 cm' },
+    weight: { min: 20,  max: 250, label: 'Weight must be 20–250 kg' },
+    age:    { min: 10,  max: 100, label: 'Age must be 10–100 years' },
+  };
+
+  const fieldError = (field, val) => {
+    const n = parseFloat(val);
+    if (!val || isNaN(n)) return `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+    if (n < LIMITS[field].min || n > LIMITS[field].max) return LIMITS[field].label;
+    return null;
+  };
+
+  const heightErr = fieldError('height', height);
+  const weightErr = fieldError('weight', weight);
+  const ageErr    = fieldError('age', age);
+
+  // Cross-field ratio check: BMI must be plausible (10–60)
+  const bmiErr = (() => {
+    const h = parseFloat(height), w = parseFloat(weight), a = parseFloat(age);
+    if (!h || !w || heightErr || weightErr) return null;
+    const bmi = w / Math.pow(h / 100, 2);
+    if (bmi < 10) return 'This height/weight combination is too low to be valid';
+    if (bmi > 60) return 'This height/weight combination is not physiologically possible';
+    // Age-weight sanity: children can't weigh as much as adults
+    if (!isNaN(a) && a < 18 && w > 52.5) return 'Weight is too high for the given age';
+    return null;
+  })();
+
+  const biometricsValid = !heightErr && !weightErr && !ageErr && !bmiErr;
+
   const handleNext = () => {
+    if (!biometricsValid || !selectedGoal) return;
     navigate('/onboarding/3');
   };
 
@@ -189,13 +221,16 @@ export default function OnboardingStep2() {
                   <label className={labelClass}>Height (cm)</label>
                   <input
                     type="number"
-                    className={inputClass}
+                    className={`${inputClass} ${height && heightErr ? 'border-red-400' : ''}`}
                     min="100"
                     max="250"
                     value={height}
                     onChange={(e) => setHeight(e.target.value)}
                     placeholder="180"
                   />
+                  {height && heightErr && (
+                    <p className="text-[9px] text-red-500 font-bold uppercase tracking-wide mt-1">{heightErr}</p>
+                  )}
                 </div>
 
                 {/* Weight */}
@@ -203,13 +238,16 @@ export default function OnboardingStep2() {
                   <label className={labelClass}>Weight (kg)</label>
                   <input
                     type="number"
-                    className={inputClass}
-                    min="30"
-                    max="300"
+                    className={`${inputClass} ${weight && weightErr ? 'border-red-400' : ''}`}
+                    min="20"
+                    max="250"
                     value={weight}
                     onChange={(e) => setWeight(e.target.value)}
-                    placeholder="75.0"
+                    placeholder="75"
                   />
+                  {weight && (weightErr || bmiErr) && (
+                    <p className="text-[9px] text-red-500 font-bold uppercase tracking-wide mt-1">{weightErr || bmiErr}</p>
+                  )}
                 </div>
 
                 {/* Age */}
@@ -217,13 +255,16 @@ export default function OnboardingStep2() {
                   <label className={labelClass}>Biological Age</label>
                   <input
                     type="number"
-                    className={inputClass}
+                    className={`${inputClass} ${age && ageErr ? 'border-red-400' : ''}`}
                     min="10"
                     max="100"
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
                     placeholder="28"
                   />
+                  {age && ageErr && (
+                    <p className="text-[9px] text-red-500 font-bold uppercase tracking-wide mt-1">{ageErr}</p>
+                  )}
                 </div>
 
                 {/* Sex */}
@@ -236,7 +277,6 @@ export default function OnboardingStep2() {
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
-                    <option value="other">Other</option>
                   </select>
                 </div>
               </div>
@@ -402,11 +442,12 @@ export default function OnboardingStep2() {
       {/* Sticky Footer */}
       <div className="fixed bottom-0 left-0 w-full bg-surface-container-lowest py-6 px-8 border-t border-outline-variant/10 flex justify-between items-center z-40">
         <span className="text-[10px] font-mono text-outline uppercase tracking-widest hidden md:block">
-          Awaiting calibration...
+          {(!biometricsValid || !selectedGoal) ? 'Complete all fields to proceed...' : 'Awaiting calibration...'}
         </span>
         <button
           onClick={handleNext}
-          className="bg-primary text-on-primary px-12 py-4 text-xs font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-primary-fixed transition-all active:scale-[0.98]"
+          disabled={!biometricsValid || !selectedGoal}
+          className={`bg-primary text-on-primary px-12 py-4 text-xs font-black uppercase tracking-[0.3em] flex items-center gap-4 transition-all active:scale-[0.98] ${(!biometricsValid || !selectedGoal) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-primary-fixed'}`}
         >
           Proceed <span className="material-symbols-outlined">arrow_forward</span>
         </button>
