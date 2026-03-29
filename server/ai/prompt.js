@@ -2,9 +2,9 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 const MODELS = {
-  vision: "google/gemma-3-12b-it:free",
-  text: "google/gemma-3-12b-it:free",
-  openai: "gpt-4o-mini",
+  vision: "google/gemini-2.0-flash-001",
+  text: "google/gemini-2.0-flash-001",
+  openai: "google/gemini-2.0-flash-001",
 };
 
 const HEADERS = {
@@ -55,21 +55,58 @@ function foldSystemMessages(messages) {
 
 async function aiCall(model, messages, attempt = 0) {
   const preparedMessages = foldSystemMessages(messages);
+  const useModel = model || MODELS.text;
 
-  const res = await fetch(OPENAI_URL, {
+  const res = await fetch(OPENROUTER_URL, {
     method: "POST",
-    headers: openaiHeaders(),
-    body: JSON.stringify({ model: MODELS.openai, messages: preparedMessages }),
+    headers: authHeaders(),
+    body: JSON.stringify({ model: useModel, messages: preparedMessages }),
   });
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error(`[aiCall] OpenAI HTTP ${res.status}:`, errBody);
-    throw new Error(`OpenAI error: ${res.status}`);
+    console.error(`[aiCall] OpenRouter HTTP ${res.status}:`, errBody);
+    throw new Error(`OpenRouter error: ${res.status}`);
   }
 
   const data = await res.json();
   return data.choices[0].message.content;
+}
+
+async function openrouterVisionCall(base64Image) {
+  const prompt = "List all visible food items in this image as a JSON array of strings. Use generic names (e.g. 'chicken breast' not brand names). Return ONLY the JSON array. Example: [\"eggs\",\"spinach\",\"cheddar cheese\"]";
+  const visionModels = [
+    "google/gemini-2.0-flash-001",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "google/gemma-3-12b-it:free",
+  ];
+
+  for (const model of visionModels) {
+    try {
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: [
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+            { type: "text", text: prompt }
+          ]}]
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.warn(`[openrouterVisionCall] ${model} HTTP ${res.status} — trying next`);
+        continue;
+      }
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) return content;
+    } catch (err) {
+      console.warn(`[openrouterVisionCall] ${model} error: ${err.message} — trying next`);
+    }
+  }
+  throw new Error("All vision models failed");
 }
 
 function parseJSON(raw, label) {
@@ -91,52 +128,42 @@ const RETRY_MSG = "Return ONLY valid JSON. No explanation, no backticks, no prea
 // ── FUNCTION 1: visionExtract ───────────────────────────────────────────────
 
 async function visionExtract(base64Image) {
-  const system =
-    "You are a kitchen inventory scanner. Identify all visible food items in the image.\n" +
-    "Return ONLY a valid JSON array of ingredient name strings. Use generic names\n" +
-    "(e.g. 'chicken breast' not 'Tyson chicken').\n" +
-    'Example: ["chicken breast","broccoli","cheddar cheese","eggs"]\n' +
-    "No preamble, no explanation, no markdown fences. Only the JSON array.";
+  const prompt = "You are a kitchen inventory scanner. List all visible food items in this image as a JSON array of strings. Use generic names (e.g. 'chicken breast' not brand names). Return ONLY the JSON array, nothing else. Example: [\"eggs\",\"spinach\",\"cheddar cheese\"]";
 
-  const messages = [
-    { role: "system", content: system },
-    {
-      role: "user",
-      content: [
-        {
-          type: "image_url",
-          image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-        },
-        { type: "text", text: "What food items are visible in this image?" },
-      ],
-    },
-  ];
-
+  // Try OpenAI gpt-4o-mini (vision capable) first
   try {
-    const raw = await aiCall(MODELS.vision, messages);
-    const parsed = parseJSON(raw, "visionExtract");
-
-    if (parsed !== null) {
-      return { ingredients: parsed };
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: openaiHeaders(),
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: [
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+          { type: "text", text: prompt }
+        ]}]
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const raw = data.choices?.[0]?.message?.content || '';
+      const parsed = parseJSON(raw, "visionExtract-openai");
+      if (parsed !== null) {
+        return { ingredients: Array.isArray(parsed) ? parsed : parsed.ingredients || [] };
+      }
+    } else {
+      console.warn("[visionExtract] OpenAI failed, falling back to OpenRouter");
     }
-
-    const retryMessages = [
-      ...messages,
-      { role: "assistant", content: raw },
-      { role: "user", content: RETRY_MSG },
-    ];
-    const raw2 = await aiCall(MODELS.vision, retryMessages);
-    const parsed2 = parseJSON(raw2, "visionExtract-retry");
-
-    if (parsed2 === null) {
-      throw new Error(`AI parse error in visionExtract: ${raw2}`);
-    }
-
-    return { ingredients: parsed2 };
   } catch (err) {
-    console.error("[visionExtract] error:", err);
-    throw err;
+    console.warn("[visionExtract] OpenAI error, falling back:", err.message);
   }
+
+  // Fallback: OpenRouter vision models
+  const raw = await openrouterVisionCall(base64Image);
+  const parsed = parseJSON(raw, "visionExtract-openrouter");
+  if (parsed !== null) {
+    return { ingredients: Array.isArray(parsed) ? parsed : parsed.ingredients || [] };
+  }
+  throw new Error("Vision AI could not parse response");
 }
 
 // ── FUNCTION 2: generateMealPlan ────────────────────────────────────────────
