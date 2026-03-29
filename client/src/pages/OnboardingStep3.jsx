@@ -27,15 +27,16 @@ export default function OnboardingStep3() {
     { id: 'korean', label: 'Korean', image: 'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=400&q=80' },
     { id: 'italian', label: 'Italian', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&q=80' },
     { id: 'indian', label: 'Indian', image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80' },
-    { id: 'west_african', label: 'West African', image: 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=400&q=80' },
+    { id: 'american', label: 'American', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80' },
     { id: 'japanese', label: 'Japanese', image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400&q=80' },
     { id: 'french', label: 'French', image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80' },
-    { id: 'greek', label: 'Greek', image: 'https://images.unsplash.com/photo-1544025162-d76538b2ed58?w=400&q=80' },
+    { id: 'greek', label: 'Greek', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80' },
     { id: 'thai', label: 'Thai', image: 'https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=400&q=80' },
   ];
 
   const dietary = [
     { id: 'vegan', label: 'Vegan' },
+    { id: 'vegetarian', label: 'Vegetarian' },
     { id: 'gluten_free', label: 'Gluten-Free' },
     { id: 'halal', label: 'Halal' },
     { id: 'kosher', label: 'Kosher' },
@@ -157,7 +158,15 @@ export default function OnboardingStep3() {
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col">
-      <main className="flex-1 pt-12 pb-24 px-6 md:px-12 max-w-7xl mx-auto w-full">
+      <nav className="w-full flex items-center px-8 py-6">
+        <div
+          className="text-2xl font-black tracking-tighter uppercase text-black cursor-pointer hover:opacity-70 transition-opacity"
+          onClick={() => navigate('/')}
+        >
+          FridgeToFit
+        </div>
+      </nav>
+      <main className="flex-1 pt-4 pb-24 px-6 md:px-12 max-w-7xl mx-auto w-full">
 
         {/* Onboarding Header */}
         <header className="mb-16">

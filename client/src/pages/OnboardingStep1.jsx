@@ -68,7 +68,8 @@ export default function OnboardingStep1() {
 
     try {
       const data = await extractIngredients(selectedFile);
-      setTypeIngredients(data.ingredients || []);
+      const names = (data.ingredients || []).map(i => typeof i === 'string' ? i : i.name).filter(Boolean);
+      setTypeIngredients(names);
       setActiveTab('type');
     } catch (error) {
       console.error('Failed to analyze fridge photo:', error);
@@ -95,8 +96,18 @@ export default function OnboardingStep1() {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface text-on-surface antialiased">
+      {/* Nav */}
+      <nav className="w-full flex items-center px-8 py-6">
+        <div
+          className="text-2xl font-black tracking-tighter uppercase text-black cursor-pointer hover:opacity-70 transition-opacity"
+          onClick={() => navigate('/')}
+        >
+          FridgeToFit
+        </div>
+      </nav>
+
       {/* Main content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 max-w-5xl mx-auto w-full">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-10 max-w-5xl mx-auto w-full">
 
         {/* Header Section */}
         <header className="w-full mb-16 space-y-2">

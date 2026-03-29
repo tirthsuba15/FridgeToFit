@@ -4,7 +4,7 @@ const db = require('../db/index');
 const { v4: uuidv4 } = require('uuid');
 const { matchRecipes } = require('../utils/recipeMatcher');
 const { calculateTDEE, getMacroTargets } = require('../utils/tdee');
-const { generateMealPlan, swapMeal, generateSummary } = require('../ai/prompt');
+const { generateMealPlan, swapMeal, generateSingleMeal, generateSummary, generateRecipe } = require('../ai/prompt');
 
 function assignCuisinesForWeek(cuisine_prefs) {
   const days = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -25,7 +25,7 @@ function assignCuisinesForWeek(cuisine_prefs) {
 // POST /api/mealplan/generate
 router.post('/generate', async (req, res) => {
   try {
-    const { user_id, ingredient_ids, cuisine_prefs: reqCuisines, dietary_flags: reqDietary } = req.body;
+    const { user_id, ingredient_ids, ingredient_names, cuisine_prefs: reqCuisines, dietary_flags: reqDietary } = req.body;
 
     // 1. Load user
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(user_id);
@@ -82,6 +82,11 @@ router.post('/generate', async (req, res) => {
     const cuisineAssignment = assignCuisinesForWeek(cuisine_prefs);
     let mealPlan;
     try {
+      // Collect ingredient names: from request body, or fall back to DB
+      const ownedIngredientNames = ingredient_names && ingredient_names.length > 0
+        ? ingredient_names
+        : db.prepare('SELECT name FROM ingredients').all().map(i => i.name);
+
       mealPlan = await generateMealPlan({
         recipes: recipePool,
         tdee,
@@ -91,6 +96,7 @@ router.post('/generate', async (req, res) => {
         dietary: dietary_flags,
         budget: user.weekly_budget_usd,
         goal: user.goal,
+        owned_ingredients: ownedIngredientNames,
       });
     } catch (err) {
       console.error('[mealplan/generate] AI error:', err.message);
@@ -188,17 +194,27 @@ router.post('/swap', async (req, res) => {
 
     let swapResult;
     try {
-      swapResult = await swapMeal({
-        current_recipe: {
-          recipe_id: currentMeal.recipe_id,
-          recipe_name: currentMeal.recipe_name || currentMeal.name || 'Unknown',
-          prep_time_min: currentMeal.prep_time_min,
-        },
-        slot,
-        user_dietary: dietaryFlags,
-        macro_remaining: { protein: 50, carbs: 75, fat: 25 },
-        matched_pool: swapPool,
-      });
+      if (swapPool.length === 0) {
+        // freeMode — no DB recipes, generate a fresh meal directly
+        swapResult = await generateSingleMeal({
+          slot,
+          current_name: currentMeal.recipe_name || currentMeal.name || 'Unknown',
+          dietary: dietaryFlags,
+        });
+        swapResult.recipe_id = null;
+      } else {
+        swapResult = await swapMeal({
+          current_recipe: {
+            recipe_id: currentMeal.recipe_id,
+            recipe_name: currentMeal.recipe_name || currentMeal.name || 'Unknown',
+            prep_time_min: currentMeal.prep_time_min,
+          },
+          slot,
+          user_dietary: dietaryFlags,
+          macro_remaining: { protein: 50, carbs: 75, fat: 25 },
+          matched_pool: swapPool,
+        });
+      }
     } catch (err) {
       console.error('[mealplan/swap] AI error:', err.message);
       return res.status(502).json({ error: 'Swap AI unavailable' });
@@ -225,6 +241,19 @@ router.post('/swap', async (req, res) => {
     });
   } catch (e) {
     console.error('[mealplan/swap] error:', e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/mealplan/recipe
+router.post('/recipe', async (req, res) => {
+  try {
+    const { meal_name } = req.body;
+    if (!meal_name) return res.status(400).json({ error: 'meal_name required' });
+    const recipe = await generateRecipe(meal_name);
+    return res.json(recipe);
+  } catch (e) {
+    console.error('[mealplan/recipe] error:', e.message);
     return res.status(500).json({ error: e.message });
   }
 });

@@ -74,8 +74,8 @@ export async function patchLeftovers(planId, payload) {
  * @returns {Promise<{items: array}>}
  */
 export async function fetchGroceryList(planId) {
-  const res = await client.get(`/api/grocery/${planId}`);
-  return res.data; // expects { items: GroceryItem[] }
+  const res = await client.post('/api/grocery/generate', { meal_plan_id: planId });
+  return res.data;
 }
 
 /**
@@ -84,5 +84,15 @@ export async function fetchGroceryList(planId) {
  */
 export async function saveIngredientNames(names) {
   const res = await client.post('/api/ingredients/extract', { ingredients: names });
+  return res.data;
+}
+
+/**
+ * Fetch a generated recipe (ingredients + steps) for a meal name
+ * @param {string} mealName
+ * @returns {Promise<{ingredients: string[], steps: string[]}>}
+ */
+export async function fetchRecipe(mealName) {
+  const res = await client.post('/api/mealplan/recipe', { meal_name: mealName });
   return res.data;
 }

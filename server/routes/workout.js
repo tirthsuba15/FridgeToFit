@@ -30,8 +30,16 @@ router.post('/generate', async (req, res) => {
       ? db.prepare('SELECT id FROM meal_plans WHERE id = ?').get(meal_plan_id)
       : null;
 
-    // 3. Resolve equipment
-    const equipment = reqEquipment || JSON.parse(user.equipment || '[]');
+    // 3. Resolve equipment — map IDs to labels the AI understands
+    const EQUIPMENT_LABELS = {
+      bodyweight_only: 'Bodyweight Only',
+      dumbbells: 'Dumbbells',
+      barbell: 'Barbell',
+      resistance_bands: 'Resistance Bands',
+      full_gym: 'Full Gym',
+    };
+    const rawEquipment = reqEquipment || JSON.parse(user.equipment || '[]');
+    const equipment = rawEquipment.map(e => EQUIPMENT_LABELS[e] || e);
     const resolvedEquipment = equipment.length > 0 ? equipment : ['Bodyweight Only'];
 
     // 4. Calculate TDEE

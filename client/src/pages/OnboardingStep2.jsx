@@ -145,7 +145,7 @@ export default function OnboardingStep2() {
 
       {/* Glassmorphism Header */}
       <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-[0_20px_40px_rgba(0,0,0,0.06)] flex justify-between items-center px-8 py-6">
-        <div className="text-2xl font-black tracking-tighter uppercase text-black">FridgeToFit</div>
+        <div className="text-2xl font-black tracking-tighter uppercase text-black cursor-pointer hover:opacity-70 transition-opacity" onClick={() => navigate('/')}>FridgeToFit</div>
         <div className="flex items-center gap-6">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Step 01 / 03</span>
         </div>

@@ -30,13 +30,25 @@ export default function Grocery() {
   const toggleItem = (key) => {
     setCheckedItems(prev => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
+  };
+
+  const allKeys = () => {
+    const keys = [];
+    const g = groceryStore.items;
+    Object.keys(g).forEach(aisle =>
+      (g[aisle] || []).forEach((_, i) => keys.push(`${aisle}-${i}`))
+    );
+    return keys;
+  };
+
+  const handleSelectAll = () => {
+    const keys = allKeys();
+    const allChecked = keys.every(k => checkedItems.has(k));
+    setCheckedItems(allChecked ? new Set() : new Set(keys));
   };
 
   if (loading) {
@@ -108,7 +120,7 @@ export default function Grocery() {
 
       {/* Fixed Nav */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-[0_20px_40px_rgba(0,0,0,0.06)] flex justify-between items-center px-8 py-6">
-        <div className="text-2xl font-black tracking-tighter uppercase text-black">FridgeToFit</div>
+        <div className="text-2xl font-black tracking-tighter uppercase text-black cursor-pointer hover:opacity-70 transition-opacity" onClick={() => navigate('/')}>FridgeToFit</div>
         <div className="hidden md:flex items-center gap-8">
           <a
             onClick={() => navigate('/results')}
@@ -120,9 +132,6 @@ export default function Grocery() {
             Groceries
           </a>
         </div>
-        <button className="bg-primary text-on-primary px-4 py-2 text-xs font-bold uppercase tracking-widest active:scale-[0.98] duration-200">
-          Get Started
-        </button>
       </nav>
 
       {/* Main */}
@@ -237,7 +246,7 @@ export default function Grocery() {
                                 {item.name}
                               </h3>
                               <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-medium">
-                                Qty: {item.quantity_g}g
+                                {item.quantity || `${item.quantity_g}g`}
                               </span>
                             </div>
                           </div>
@@ -289,7 +298,13 @@ export default function Grocery() {
             </div>
           </div>
 
-          <div className="flex items-center gap-12 w-full md:w-auto">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={handleSelectAll}
+              className="bg-zinc-100 hover:bg-zinc-200 px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors active:scale-[0.98]"
+            >
+              {allKeys().every(k => checkedItems.has(k)) ? 'Deselect All' : 'Select All'}
+            </button>
             <div className="text-right">
               <span className="block text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-1">
                 Estimated Weekly Total
@@ -298,19 +313,6 @@ export default function Grocery() {
                 ${totalCost.toFixed(2)}
               </span>
             </div>
-            <button className="bg-primary text-white h-20 px-12 group relative overflow-hidden flex items-center gap-4 transition-transform active:scale-95">
-              <span className="text-[10px] uppercase font-bold tracking-[0.3em]">Checkout List</span>
-              <svg
-                className="w-4 h-4 translate-x-0 group-hover:translate-x-2 transition-transform"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </button>
           </div>
         </div>
       </div>

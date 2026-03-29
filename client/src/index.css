@@ -56,3 +56,14 @@ input[type='range'] {
 #root {
   min-height: 100vh;
 }
+
+@media print {
+  nav, footer, .fixed { display: none !important; }
+  body { font-size: 14pt; color: #000; background: #fff; }
+  h1 { font-size: 28pt !important; }
+  h2 { font-size: 18pt !important; }
+  h3 { font-size: 14pt !important; }
+  span, p, div { font-size: 11pt; }
+  .text-\[10px\], .text-\[9px\], .text-\[8px\] { font-size: 10pt !important; }
+  main { padding-top: 0 !important; padding-bottom: 0 !important; }
+}

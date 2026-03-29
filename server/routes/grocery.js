@@ -4,6 +4,7 @@ const db = require('../db/index');
 const requireUser = require('../middleware/auth');
 const { estimateCost, getAisle } = require('../utils/cost');
 const { calculateTDEE, getMacroTargets } = require('../utils/tdee');
+const { generateGroceryList } = require('../ai/prompt');
 
 // POST /api/grocery/generate — frontend-friendly alias for GET /:mealplan_id
 router.post('/generate', requireUser, async (req, res) => {
@@ -79,15 +80,33 @@ router.post('/generate', requireUser, async (req, res) => {
       }
     }
 
-    const grouped = {};
+    let grouped = {};
     let total_cost_usd = 0;
-    for (const [name, data] of Object.entries(ingredientTotals)) {
-      const cost = estimateCost(name, data.quantity_g);
-      total_cost_usd += cost;
-      if (!grouped[data.aisle]) grouped[data.aisle] = [];
-      grouped[data.aisle].push({ name, quantity_g: Math.round(data.quantity_g), estimated_cost_usd: cost });
+
+    if (Object.keys(ingredientTotals).length === 0) {
+      // freeMode: no recipe ingredients — ask AI to generate grocery list from meal names
+      const mealNames = [];
+      for (const slots of Object.values(days)) {
+        for (const meal of Object.values(slots)) {
+          if (meal?.recipe_name) mealNames.push(meal.recipe_name);
+        }
+      }
+      if (mealNames.length > 0) {
+        grouped = await generateGroceryList(mealNames);
+        for (const items of Object.values(grouped)) {
+          for (const item of (items || [])) total_cost_usd += item.estimated_cost_usd || 0;
+        }
+        total_cost_usd = Math.round(total_cost_usd * 100) / 100;
+      }
+    } else {
+      for (const [name, data] of Object.entries(ingredientTotals)) {
+        const cost = estimateCost(name, data.quantity_g);
+        total_cost_usd += cost;
+        if (!grouped[data.aisle]) grouped[data.aisle] = [];
+        grouped[data.aisle].push({ name, quantity_g: Math.round(data.quantity_g), estimated_cost_usd: cost });
+      }
+      total_cost_usd = Math.round(total_cost_usd * 100) / 100;
     }
-    total_cost_usd = Math.round(total_cost_usd * 100) / 100;
 
     const items_json = JSON.stringify(grouped);
     if (groceryRow) {
